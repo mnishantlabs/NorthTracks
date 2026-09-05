@@ -4,6 +4,10 @@
 
 **Website:** https://mnishantlabs.github.io/NorthTracks/
 
+- [Home](https://mnishantlabs.github.io/NorthTracks/)
+- [Features](https://mnishantlabs.github.io/NorthTracks/features.html)
+- [Catalog & Updates](https://mnishantlabs.github.io/NorthTracks/releases.html)
+
 ## Highlights
 
 - Scan & organize MP3, M4A, FLAC, and WAV into genre-sorted folders

@@ -1,294 +1,259 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NorthTracks — Local-first music library manager for Windows</title>
-<meta name="description" content="NorthTracks is a local-first music library manager and player for Windows. Fully offline, no cloud dependency.">
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
-<style>
-  :root {
-    --bg: #0b0712;
-    --bg-soft: #120a1f;
-    --card: #170f26;
-    --border: #2a1c44;
-    --text: #ece7f6;
-    --muted: #9b8fb8;
-    --accent: #863bff;
-    --accent-soft: rgba(134, 59, 255, 0.14);
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  html { scroll-behavior: smooth; }
-
-  body {
-    background: var(--bg);
-    background-image:
-      radial-gradient(600px 300px at 80% -10%, rgba(134, 59, 255, 0.18), transparent),
-      radial-gradient(500px 300px at 10% 0%, rgba(134, 59, 255, 0.10), transparent);
-    color: var(--text);
-    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-  }
-
-  .container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
-
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 0;
-  }
-
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.15rem; text-decoration: none; color: var(--text); }
-  .brand svg { flex-shrink: 0; }
-
-  nav { display: flex; gap: 22px; }
-  nav a { color: var(--muted); text-decoration: none; font-size: 0.92rem; transition: color 0.2s; }
-  nav a:hover { color: var(--text); }
-
-  .hero { text-align: center; padding: 96px 0 64px; }
-
-  .hero .logo { margin-bottom: 24px; }
-
-  .tag { display: inline-block; background: var(--accent-soft); color: var(--accent); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; margin-bottom: 22px; }
-
-  .hero h1 { font-size: clamp(2.4rem, 6vw, 4rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 18px; }
-  .hero h1 span { color: var(--accent); }
-
-  .hero p { max-width: 640px; margin: 0 auto 32px; color: var(--muted); font-size: 1.12rem; }
-
-  .cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
-
-  .btn {
-    display: inline-block;
-    text-decoration: none;
-    font-weight: 600;
-    border-radius: 10px;
-    padding: 13px 26px;
-    font-size: 0.95rem;
-    transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
-  }
-  .btn:hover { transform: translateY(-2px); }
-
-  .btn-primary { background: linear-gradient(135deg, #863bff, #5f1fd0); color: #fff; box-shadow: 0 8px 24px rgba(134, 59, 255, 0.30); }
-  .btn-primary:hover { box-shadow: 0 10px 30px rgba(134, 59, 255, 0.45); }
-
-  .btn-ghost { border: 1px solid var(--border); color: var(--text); background: transparent; }
-  .btn-ghost:hover { background: var(--accent-soft); border-color: rgba(134, 59, 255, 0.5); }
-
-  .countdown {
-    margin: 72px auto 0;
-    max-width: 780px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 34px 28px;
-  }
-
-  .countdown .label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.75rem; margin-bottom: 20px; }
-
-  .countdown .heading { font-size: 1.25rem; font-weight: 700; margin-bottom: 26px; }
-  .countdown .heading span { color: var(--accent); }
-
-  .timer { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
-
-  .timer .unit { min-width: 84px; }
-  .timer .num { font-size: 2.6rem; font-weight: 800; font-variant-numeric: tabular-nums; background: var(--accent-soft); border: 1px solid var(--border); border-radius: 14px; padding: 14px 10px; margin-bottom: 8px; }
-  .timer .txt { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
-
-  section.features { padding: 72px 0; }
-
-  section.features h2, section.tech h2, section.footer-band h2 { text-align: center; font-size: 1.9rem; font-weight: 700; margin-bottom: 40px; }
-  section.features h2 span, section.tech h2 span, section.footer-band h2 span { color: var(--accent); }
-
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
-
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 24px;
-    transition: border-color 0.2s, transform 0.2s;
-  }
-  .card:hover { border-color: rgba(134, 59, 255, 0.55); transform: translateY(-3px); }
-
-  .card .icon { width: 40px; height: 40px; border-radius: 10px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
-
-  .card h3 { font-size: 1.05rem; margin-bottom: 8px; }
-
-  .card p { color: var(--muted); font-size: 0.92rem; }
-
-  section.tech { padding: 40px 0 80px; }
-
-  .chips { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; max-width: 720px; margin: 0 auto; }
-
-  .chip { background: var(--accent-soft); border: 1px solid var(--border); border-radius: 999px; padding: 8px 18px; font-size: 0.88rem; color: var(--text); }
-
-  footer { border-top: 1px solid var(--border); padding: 36px 0; text-align: center; color: var(--muted); font-size: 0.88rem; }
-  footer a { color: var(--muted); }
-  footer a:hover { color: var(--accent); }
-
-  @media (max-width: 600px) {
-    nav { display: none; }
-    .hero { padding-top: 64px; }
-    .timer { gap: 12px; }
-    .timer .unit { min-width: 62px; }
-    .timer .num { font-size: 2rem; }
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NorthTracks — local-first music library manager for windows</title>
+    <meta name="description" content="NorthTracks is a local-first music library manager and player for Windows. Scan, organize, dedupe and play your music — fully offline.">
+    <meta property="og:title" content="NorthTracks — your music. your files. offline.">
+    <meta property="og:description" content="A local-first music library manager and player for Windows. Fully offline, no cloud dependency.">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="shared/styles.css">
 </head>
 <body>
 
-<div class="container">
+<div class="glow glow-1"></div>
+<div class="glow glow-2"></div>
+<div class="glow glow-3"></div>
+<div class="bg-grid"></div>
 
-  <header>
-    <a class="brand" href="#">
-      <svg width="28" height="27" fill="none" viewBox="0 0 48 46"><path fill="#863bff" d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z"/></svg>
-      NorthTracks
-    </a>
-    <nav>
-      <a href="#features">Features</a>
-      <a href="#update">Update</a>
-      <a href="https://github.com/mnishantlabs/NorthTracks">GitHub</a>
+<div class="page">
+
+    <nav class="nav">
+        <a class="logo" href="index.html">
+            <span class="logo-icon">
+                <svg width="14" height="14" fill="none" viewBox="0 0 48 46"><path fill="currentColor" d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z"/></svg>
+            </span>
+            <span class="logo-text">northtracks</span>
+        </a>
+        <div class="nav-links">
+            <a href="index.html" class="nav-link active">home</a>
+            <a href="features.html" class="nav-link">features</a>
+            <a href="releases.html" class="nav-link">catalog</a>
+            <a href="https://github.com/mnishantlabs/NorthTracks" class="nav-link" target="_blank" rel="noopener">github <span class="nav-ext">&#8599;</span></a>
+        </div>
     </nav>
-  </header>
 
-  <section class="hero">
-    <div class="logo">
-      <svg width="72" height="69" fill="none" viewBox="0 0 48 46"><path fill="#863bff" d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z"/></svg>
-    </div>
-    <span class="tag">v1.0 — Now Available</span>
-    <h1>Your music.<br><span>Your files.</span> Offline.</h1>
-    <p>A local-first music library manager and player for Windows. Scans, organizes, deduplicates, and plays your collection — no internet, no cloud, no lock-in.</p>
-    <div class="cta">
-      <a class="btn btn-primary" href="https://github.com/mnishantlabs/NorthTracks/releases">Download for Windows</a>
-      <a class="btn btn-ghost" href="https://github.com/mnishantlabs/NorthTracks">View on GitHub</a>
-    </div>
+    <header class="hero">
+        <div class="split">
 
-    <div class="countdown" id="update">
-      <div class="heading">Next update arriving in — <span>new features coming this week</span></div>
-      <div class="label">Estimated release in</div>
-      <div class="timer" id="timer">
-        <div class="unit"><div class="num" id="days">0</div><div class="txt">Days</div></div>
-        <div class="unit"><div class="num" id="hours">0</div><div class="txt">Hours</div></div>
-        <div class="unit"><div class="num" id="mins">0</div><div class="txt">Minutes</div></div>
-        <div class="unit"><div class="num" id="secs">0</div><div class="txt">Seconds</div></div>
-      </div>
-    </div>
-  </section>
+            <div class="hero-copy">
+                <div class="hero-badge">
+                    <span class="badge">
+                        <span class="badge-dot"></span>
+                        <span class="badge-text" id="version-badge">v1.1.0 — now available</span>
+                    </span>
+                </div>
 
-  <section class="features" id="features">
-    <h2>Everything your library <span>needs</span></h2>
-    <div class="grid">
-      <div class="card">
-        <div class="icon">
-          <svg width="20" height="20" fill="none" stroke="#863bff" stroke-width="2" viewBox="0 0 24 24"><path d="M12 3v10m0 0a4 4 0 1 0 4 4"/><path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0z"/></svg>
-        </div>
-        <h3>Scan &amp; Metadata</h3>
-        <p>Reads embedded metadata from MP3, M4A, FLAC, and WAV files in your local folders.</p>
-      </div>
-      <div class="card">
-        <div class="icon">
-          <svg width="20" height="20" fill="none" stroke="#863bff" stroke-width="2" viewBox="0 0 24 24"><path d="M12 3v10m6 11a6 6 0 1 0-12 0"/></svg>
-        </div>
-        <h3>Duplicate Detection</h3>
-        <p>Automatically finds and resolves duplicate tracks by matching title and artist.</p>
-      </div>
-      <div class="card">
-        <div class="icon">
-          <svg width="20" height="20" fill="none" stroke="#863bff" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M6 6v4m12-4v4M4 14h16l-1 8H5l-1-8z"/></svg>
-        </div>
-        <h3>Genre Sorting</h3>
-        <p>Copies and organizes your music into genre-sorted folders at a destination of your choice.</p>
-      </div>
-      <div class="card">
-        <div class="icon">
-          <svg width="20" height="20" fill="none" stroke="#863bff" stroke-width="2" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3v5zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3v5z"/></svg>
-        </div>
-        <h3>Full Music Player</h3>
-        <p>Queue, shuffle, smart shuffle, repeat, and volume control with a full-screen Now Playing view.</p>
-      </div>
-      <div class="card">
-        <div class="icon">
-          <svg width="20" height="20" fill="none" stroke="#863bff" stroke-width="2" viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.5-8.5C.5 9 2 5.5 5.5 4.5 8 3.8 10.5 5 12 7c1.5-2 4-3.2 6.5-2.5C22 5.5 23.5 9 21.5 12.5 19 16.4 12 21 12 21z"/></svg>
-        </div>
-        <h3>Smart Home Screen</h3>
-        <p>Recently Played, Top Songs, and daily recommendations built from your listening history.</p>
-      </div>
-      <div class="card">
-        <div class="icon">
-          <svg width="20" height="20" fill="none" stroke="#863bff" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-        </div>
-        <h3>Playlists &amp; Liked</h3>
-        <p>Auto-generated genre playlists, custom playlists, and a Liked Songs collection.</p>
-      </div>
-      <div class="card">
-        <div class="icon">
-          <svg width="20" height="20" fill="none" stroke="#863bff" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        </div>
-        <h3>Global Search</h3>
-        <p>Instant search across title, artist, and genre anywhere in your library.</p>
-      </div>
-      <div class="card">
-        <div class="icon">
-          <svg width="20" height="20" fill="none" stroke="#863bff" stroke-width="2" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/></svg>
-        </div>
-        <h3>Rich Presence</h3>
-        <p>Discord Rich Presence, Windows media controls, and taskbar thumbnail buttons.</p>
-      </div>
-      <div class="card">
-        <div class="icon">
-          <svg width="20" height="20" fill="none" stroke="#863bff" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
-        </div>
-        <h3>Customizable UI</h3>
-        <p>Light and dark mode, accent colors, fonts, and Windows 11 Acrylic visual styles.</p>
-      </div>
-    </div>
-  </section>
+                <h1 class="hero-title">
+                    your music.<br>
+                    <span class="hero-highlight">your files. offline.</span>
+                </h1>
 
-  <section class="tech">
-    <h2>Built with <span>modern tooling</span></h2>
-    <div class="chips">
-      <span class="chip">Electron</span>
-      <span class="chip">React</span>
-      <span class="chip">TypeScript</span>
-      <span class="chip">Vite</span>
-      <span class="chip">electron-store</span>
-      <span class="chip">music-metadata</span>
-      <span class="chip">chokidar</span>
-    </div>
-  </section>
+                <p class="hero-subtitle">
+                    a local-first music library manager and player for windows.
+                    scan, organize, dedupe and play your collection — no internet,
+                    no cloud, no lock-in.
+                </p>
 
-  <footer>
-    <p>NorthTracks is fully offline. No internet required after installation.</p>
-    <p><a href="https://github.com/mnishantlabs/NorthTracks">GitHub</a> · MIT License</p>
-  </footer>
+                <div class="hero-actions">
+                    <a class="btn btn-primary btn-lg disabled" id="dl-btn" href="https://github.com/mnishantlabs/NorthTracks/releases">
+                        <span class="dl-label">loading latest…</span> <span class="btn-arrow">&darr;</span>
+                    </a>
+                    <a class="btn btn-ghost btn-lg" href="releases.html">browse the catalog <span class="btn-arrow">&rarr;</span></a>
+                </div>
+
+                <div class="stats">
+                    <div class="stat">
+                        <span class="stat-number" id="stat-releases">2</span>
+                        <span class="stat-label">releases</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat">
+                        <span class="stat-number">0</span>
+                        <span class="stat-label">cloud</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat">
+                        <span class="stat-number-wrap"><span class="stat-number">100</span><span class="stat-percent">%</span></span>
+                        <span class="stat-label">offline</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat">
+                        <span class="stat-number">win</span>
+                        <span class="stat-label">10 / 11</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mock-wrap reveal">
+                <div class="mock-glow"></div>
+                <div class="mock">
+                    <div class="mock-top">
+                        <span class="mock-dot r"></span>
+                        <span class="mock-dot y"></span>
+                        <span class="mock-dot g"></span>
+                        <span class="mock-addr">northtracks.local</span>
+                    </div>
+                    <div class="mock-body">
+                        <div class="mock-side">
+                            <span class="mock-side-label">library</span>
+                            <span class="mock-side-item active">library</span>
+                            <span class="mock-side-item">genres</span>
+                            <span class="mock-side-item">playlists</span>
+                            <span class="mock-side-item">liked</span>
+                            <span class="mock-side-label">system</span>
+                            <span class="mock-side-item">settings</span>
+                        </div>
+                        <div class="mock-main">
+                            <div class="mock-row">
+                                <span class="mock-cover" style="background:linear-gradient(135deg,#7c3aed,#db2777)"></span>
+                                <span class="mock-meta"><span class="mock-title">neon nights</span><span class="mock-artist">midnight drive</span></span>
+                                <span class="eq on"><span style="--d:0s"></span><span style="--d:.15s"></span><span style="--d:.3s"></span><span style="--d:.45s"></span><span style="--d:.6s"></span></span>
+                                <span class="mock-dur">3:24</span>
+                            </div>
+                            <div class="mock-row playing">
+                                <span class="mock-cover" style="background:linear-gradient(135deg,#2563eb,#38bdf8)"></span>
+                                <span class="mock-meta"><span class="mock-title">gravity</span><span class="mock-artist">northbound</span></span>
+                                <span class="eq"><span style="--d:0s"></span><span style="--d:.12s"></span><span style="--d:.3s"></span><span style="--d:.5s"></span><span style="--d:.62s"></span></span>
+                                <span class="mock-dur">4:02</span>
+                            </div>
+                            <div class="mock-row">
+                                <span class="mock-cover" style="background:linear-gradient(135deg,#059669,#34d399)"></span>
+                                <span class="mock-meta"><span class="mock-title">static bloom</span><span class="mock-artist">polar skies</span></span>
+                                <span class="eq"><span style="--d:.1s"></span><span style="--d:.3s"></span><span style="--d:.5s"></span><span style="--d:.7s"></span><span style="--d:.2s"></span></span>
+                                <span class="mock-dur">2:51</span>
+                            </div>
+                            <div class="mock-row">
+                                <span class="mock-cover" style="background:linear-gradient(135deg,#d97706,#fbbf24)"></span>
+                                <span class="mock-meta"><span class="mock-title">canvas</span><span class="mock-artist">slow current</span></span>
+                                <span class="eq"><span style="--d:.2s"></span><span style="--d:.4s"></span><span style="--d:.6s"></span><span style="--d:.1s"></span><span style="--d:.5s"></span></span>
+                                <span class="mock-dur">3:47</span>
+                            </div>
+                            <div class="mock-row">
+                                <span class="mock-cover" style="background:linear-gradient(135deg,#e11d48,#fb7185)"></span>
+                                <span class="mock-meta"><span class="mock-title">afterglow</span><span class="mock-artist">the sunsets</span></span>
+                                <span class="eq"><span style="--d:.3s"></span><span style="--d:.1s"></span><span style="--d:.5s"></span><span style="--d:.2s"></span><span style="--d:.4s"></span></span>
+                                <span class="mock-dur">5:12</span>
+                            </div>
+                            <div class="mock-row">
+                                <span class="mock-cover" style="background:linear-gradient(135deg,#0891b2,#22d3ee)"></span>
+                                <span class="mock-meta"><span class="mock-title">crossfade</span><span class="mock-artist">signal lost</span></span>
+                                <span class="eq"><span style="--d:.05s"></span><span style="--d:.25s"></span><span style="--d:.45s"></span><span style="--d:.65s"></span><span style="--d:.35s"></span></span>
+                                <span class="mock-dur">3:33</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mock-progress">
+                        <span class="mock-time">2:14</span>
+                        <div class="mock-bar"><div class="mock-bar-fill"></div></div>
+                        <span class="mock-time">3:24</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </header>
+
+    <section class="countdown" id="update">
+        <div class="panel countdown-card reveal" data-countdown>
+            <div class="countdown-head">
+                <span class="chip">■ next update</span>
+                <h2 class="countdown-title">arriving in <span>7 days</span></h2>
+            </div>
+            <div class="timer">
+                <div class="unit"><div class="num" data-unit="days">0</div><span class="txt">days</span></div>
+                <div class="unit"><div class="num" data-unit="hours">0</div><span class="txt">hours</span></div>
+                <div class="unit"><div class="num" data-unit="mins">0</div><span class="txt">minutes</span></div>
+                <div class="unit"><div class="num" data-unit="secs">0</div><span class="txt">seconds</span></div>
+            </div>
+            <div class="progress"><div class="progress-fill" style="width:2%"></div></div>
+            <p class="countdown-meta">a fresh version ships every week — next release scheduled for <strong id="countdown-schedule">…</strong></p>
+            <p class="countdown-note">updates drop weekly · countdown is anchored to the repo, so it never resets on refresh</p>
+        </div>
+    </section>
+
+    <section class="section" id="features">
+        <h2 class="section-title">everything your library <span class="dim">needs</span></h2>
+        <p class="section-sub">built for people who own their files — every feature works with zero internet access.</p>
+
+        <div class="feature-grid">
+            <div class="feature-card reveal" style="--card-accent:#a78bfa; --card-glow:rgba(167,139,250,.28)">
+                <span class="feature-icon">sc</span>
+                <h3>scan & metadata</h3>
+                <p>points at your folders and reads embedded tags from mp3, m4a, flac and wav — instant, local, accurate.</p>
+                <span class="feature-tag-row"><span class="tag">library</span><span class="feature-arrow">&rarr;</span></span>
+            </div>
+            <div class="feature-card reveal" style="--card-accent:#60a5fa; --card-glow:rgba(96,165,250,.28)">
+                <span class="feature-icon">dp</span>
+                <h3>duplicate detection</h3>
+                <p>matches tracks by title + artist and flags dupes automatically, so your library stays clean.</p>
+                <span class="feature-tag-row"><span class="tag">library</span><span class="feature-arrow">&rarr;</span></span>
+            </div>
+            <div class="feature-card reveal" style="--card-accent:#34d399; --card-glow:rgba(52,211,153,.28)">
+                <span class="feature-icon">og</span>
+                <h3>genre organization</h3>
+                <p>copies music into genre-sorted folders at a destination you choose — one click, fully organized.</p>
+                <span class="feature-tag-row"><span class="tag">library</span><span class="feature-arrow">&rarr;</span></span>
+            </div>
+            <div class="feature-card reveal" style="--card-accent:#fbbf24; --card-glow:rgba(251,191,36,.28)">
+                <span class="feature-icon">pl</span>
+                <h3>full music player</h3>
+                <p>queue, shuffle, smart shuffle, repeat and volume — plus a full-screen now playing view.</p>
+                <span class="feature-tag-row"><span class="tag">player</span><span class="feature-arrow">&rarr;</span></span>
+            </div>
+            <div class="feature-card reveal" style="--card-accent:#fb7185; --card-glow:rgba(251,113,133,.28)">
+                <span class="feature-icon">lk</span>
+                <h3>playlists & liked</h3>
+                <p>auto-generated genre playlists, custom playlists and a liked songs collection you control.</p>
+                <span class="feature-tag-row"><span class="tag">player</span><span class="feature-arrow">&rarr;</span></span>
+            </div>
+            <div class="feature-card reveal" style="--card-accent:#22d3ee; --card-glow:rgba(34,211,238,.28)">
+                <span class="feature-icon">fl</span>
+                <h3>fully offline</h3>
+                <p>no internet after install — no telemetry, no account, no cloud. your music never leaves your machine.</p>
+                <span class="feature-tag-row"><span class="tag">privacy</span><span class="feature-arrow">&rarr;</span></span>
+            </div>
+        </div>
+
+        <div class="center" style="margin-top:var(--space-2xl)">
+            <a class="btn btn-ghost btn-lg" href="features.html">see every feature <span class="btn-arrow">&rarr;</span></a>
+        </div>
+    </section>
+
+    <section class="section">
+        <h2 class="section-title">how it works</h2>
+        <div class="steps">
+            <div class="step reveal">
+                <span class="step-number">01</span>
+                <h3 class="step-title">install the app</h3>
+                <p class="step-desc">grab the latest installer from the catalog — no node, npm or any other tooling required.</p>
+            </div>
+            <div class="step reveal">
+                <span class="step-number">02</span>
+                <h3 class="step-title">point at your music</h3>
+                <p class="step-desc">set your source and destination folders in preferences. northtracks does the rest.</p>
+            </div>
+            <div class="step reveal">
+                <span class="step-number">03</span>
+                <h3 class="step-title">hit play</h3>
+                <p class="step-desc">library scanned, duplicates found, folders organized — press play and enjoy.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="footer-inner">
+            <span class="footer-text">northtracks — built for offline, designed with intent &middot; <a href="https://github.com/mnishantlabs/NorthTracks" target="_blank" rel="noopener">github</a> &middot; <a href="releases.html">catalog</a></span>
+            <span class="footer-mono">mit license</span>
+        </div>
+    </footer>
 
 </div>
 
-<script>
-  const TARGET = Date.now() + 7 * 24 * 60 * 60 * 1000;
-
-  function pad(n) { return String(n).padStart(2, "0"); }
-
-  function tick() {
-    const diff = TARGET - Date.now();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-    const mins = Math.floor((diff / (1000 * 60)) % 60);
-    const secs = Math.floor((diff / 1000) % 60);
-    document.getElementById("days").textContent = days;
-    document.getElementById("hours").textContent = pad(hours);
-    document.getElementById("mins").textContent = pad(mins);
-    document.getElementById("secs").textContent = pad(secs);
-  }
-
-  tick();
-  setInterval(tick, 1000);
-</script>
-
+<script src="shared/app.js"></script>
 </body>
 </html>

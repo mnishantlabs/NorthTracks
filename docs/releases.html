@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catalog & Updates — NorthTracks</title>
+    <meta name="description" content="NorthTracks catalog — every release, every installer, every changelog. Weekly updates.">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="shared/styles.css">
+</head>
+<body>
+
+<div class="glow glow-1"></div>
+<div class="glow glow-2"></div>
+<div class="glow glow-3"></div>
+<div class="bg-grid"></div>
+
+<div class="page">
+
+    <nav class="nav">
+        <a class="logo" href="index.html">
+            <span class="logo-icon">
+                <svg width="14" height="14" fill="none" viewBox="0 0 48 46"><path fill="currentColor" d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z"/></svg>
+            </span>
+            <span class="logo-text">northtracks</span>
+        </a>
+        <div class="nav-links">
+            <a href="index.html" class="nav-link">home</a>
+            <a href="features.html" class="nav-link">features</a>
+            <a href="releases.html" class="nav-link active">catalog</a>
+            <a href="https://github.com/mnishantlabs/NorthTracks" class="nav-link" target="_blank" rel="noopener">github <span class="nav-ext">&#8599;</span></a>
+        </div>
+    </nav>
+
+    <main class="container">
+        <header class="page-head">
+            <h1 class="page-title">catalog & <span>updates</span></h1>
+            <p class="page-sub">every release, every installer, every changelog — pulled live from the repository. a new version ships weekly.</p>
+        </header>
+
+        <section class="countdown" id="update" style="padding-top:0;padding-bottom:var(--space-2xl)">
+            <div class="panel countdown-card reveal" data-countdown>
+                <div class="countdown-head">
+                    <span class="chip">■ next update</span>
+                    <h2 class="countdown-title">arriving in <span>7 days</span></h2>
+                </div>
+                <div class="timer">
+                    <div class="unit"><div class="num" data-unit="days">0</div><span class="txt">days</span></div>
+                    <div class="unit"><div class="num" data-unit="hours">0</div><span class="txt">hours</span></div>
+                    <div class="unit"><div class="num" data-unit="mins">0</div><span class="txt">minutes</span></div>
+                    <div class="unit"><div class="num" data-unit="secs">0</div><span class="txt">seconds</span></div>
+                </div>
+                <div class="progress"><div class="progress-fill" style="width:2%"></div></div>
+                <p class="countdown-meta">a fresh version ships every week — next release scheduled for <strong id="countdown-schedule">…</strong></p>
+                <p class="countdown-note">updates drop weekly · countdown is anchored to the repo, so it never resets on refresh</p>
+            </div>
+        </section>
+
+        <section>
+            <div class="release-hero reveal" id="release-hero">
+                <div class="state"><div class="spinner"></div>loading latest release…</div>
+            </div>
+
+            <div>
+                <div class="group-head" style="margin-bottom:var(--space-lg)">
+                    <span class="group-icon">
+                        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 4v16l8-3.5-8-12.5z"/></svg>
+                    </span>
+                    <span class="group-title">history</span>
+                </div>
+                <div class="release-list" id="release-list">
+                    <div class="state"><div class="spinner"></div>fetching the catalog…</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-inner">
+            <span class="footer-text">northtracks — built for offline, designed with intent &middot; <a href="https://github.com/mnishantlabs/NorthTracks" target="_blank" rel="noopener">github</a> &middot; <a href="index.html">home</a></span>
+            <span class="footer-mono">mit license</span>
+        </div>
+    </footer>
+
+</div>
+
+<script src="shared/app.js"></script>
+</body>
+</html>
