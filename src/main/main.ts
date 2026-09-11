@@ -5,7 +5,7 @@ import fs from 'fs';
 import os from 'os';
 import crypto from 'crypto';
 import NodeID3 from 'node-id3';
-import { scanLibrary, findFolderImage, getAudioFiles, limitConcurrency, fastScanAllDrives, getSystemDrives, cancelCurrentScan, isScanCancelled } from './scanner';
+import { scanLibrary, findFolderImage, getAudioFiles, limitConcurrency, fastScanAllDrives, getSystemDrives, cancelCurrentScan, isScanCancelled, isRecordingTrack } from './scanner';
 import { fetchiTunesMetadata } from './itunes';
 import { organizeLibrary, clearGenreMapCache, normalizeGenreName, reorganizeFolders } from './organizer';
 import { getSettings, saveSettings } from './settings';
@@ -797,7 +797,12 @@ ipcMain.handle('get-library', async () => {
       const content = await fs.promises.readFile(libraryFilePath, 'utf-8');
       const tracks = JSON.parse(content);
       if (Array.isArray(tracks)) {
-        return tracks.map(t => {
+        // Filter out files that no longer exist on disk or match call recordings/podcasts
+        const validTracks = tracks.filter(t => {
+          if (!t.filePath || !fs.existsSync(t.filePath)) return false;
+          if (isRecordingTrack(t.title || t.filePath, t.artist, t.album, t.duration)) return false;
+          return true;
+        }).map(t => {
           if (t.coverArt && t.coverArt.startsWith('file:///')) {
             t.coverArt = t.coverArt.replace('file:///', 'media:///');
           }
@@ -809,6 +814,15 @@ ipcMain.handle('get-library', async () => {
           }
           return t;
         });
+
+        // Write cleaned library back if deleted tracks were removed
+        if (validTracks.length !== tracks.length) {
+          try {
+            fs.writeFileSync(libraryFilePath, JSON.stringify(validTracks, null, 2), 'utf-8');
+          } catch (e) {}
+        }
+
+        return validTracks;
       }
       return tracks;
     }

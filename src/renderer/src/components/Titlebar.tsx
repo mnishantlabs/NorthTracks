@@ -9,6 +9,7 @@ interface TitlebarProps {
   libraryTracks: Track[];
   onPlayTrack: (track: Track) => void;
   onNavigateHome: () => void;
+  currentView?: string;
 }
 
 /** Reads the current theme from the root element's data-theme attribute. */
@@ -24,12 +25,15 @@ export const Titlebar: React.FC<TitlebarProps> = ({
   libraryTracks,
   onPlayTrack,
   onNavigateHome,
+  currentView = 'home'
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [recentSearches, setRecentSearches] = useState<Track[]>([]);
   const [isDark, setIsDark] = useState<boolean>(getIsDark);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [onlineSearchResults, setOnlineSearchResults] = useState<Track[]>([]);
+  const [isSearchingOnline, setIsSearchingOnline] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -146,7 +150,29 @@ export const Titlebar: React.FC<TitlebarProps> = ({
     };
   }, []);
 
-  // Filter tracks based on search query
+  useEffect(() => {
+    if (currentView === 'explore' && searchQuery.trim().length > 1) {
+      setIsSearchingOnline(true);
+      const timer = setTimeout(async () => {
+        try {
+          if (window.electronAPI?.searchOnlineMusic) {
+            const results = await window.electronAPI.searchOnlineMusic(searchQuery.trim());
+            setOnlineSearchResults(results || []);
+          }
+        } catch (e) {
+          console.error('Online search failed:', e);
+        } finally {
+          setIsSearchingOnline(false);
+        }
+      }, 400);
+      return () => clearTimeout(timer);
+    } else {
+      setOnlineSearchResults([]);
+      setIsSearchingOnline(false);
+    }
+  }, [searchQuery, currentView]);
+
+  // Filter tracks based on search query for local views
   const getFilteredTracks = () => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase().trim();
@@ -329,33 +355,70 @@ export const Titlebar: React.FC<TitlebarProps> = ({
             ) : (
               // Live Search results
               <div className="dropdown-section">
-                <div className="dropdown-section-header">Search Results</div>
-                {filteredTracks.length === 0 ? (
-                  <div className="dropdown-empty-state">No results found for "{searchQuery}"</div>
-                ) : (
-                  <div className="dropdown-list scrollable">
-                    {filteredTracks.slice(0, 15).map((track) => (
-                      <div
-                        key={`result-${track.filePath}`}
-                        className="dropdown-row"
-                        onClick={() => handleSelectTrack(track)}
-                      >
-                        <div className="dropdown-row-cover">
-                          {track.coverArt ? (
-                            <img src={track.coverArt} alt="" />
-                          ) : (
-                            <Music2 size={16} />
-                          )}
-                        </div>
-                        <div className="dropdown-row-meta">
-                          <span className="dropdown-row-title">{track.title || 'Unknown Title'}</span>
-                          <span className="dropdown-row-subtitle">
-                            {track.artist || 'Unknown Artist'}
-                          </span>
-                        </div>
+                {currentView === 'explore' ? (
+                  <>
+                    <div className="dropdown-section-header">Online Music Results (Explore Tab)</div>
+                    {isSearchingOnline ? (
+                      <div className="dropdown-empty-state">Searching online music catalog...</div>
+                    ) : onlineSearchResults.length === 0 ? (
+                      <div className="dropdown-empty-state">No online tracks found for "{searchQuery}"</div>
+                    ) : (
+                      <div className="dropdown-list scrollable">
+                        {onlineSearchResults.slice(0, 15).map((track) => (
+                          <div
+                            key={`online-res-${(track as any).id || track.filePath}`}
+                            className="dropdown-row"
+                            onClick={() => handleSelectTrack(track)}
+                          >
+                            <div className="dropdown-row-cover">
+                              {track.coverArt ? (
+                                <img src={track.coverArt} alt="" />
+                              ) : (
+                                <Music2 size={16} />
+                              )}
+                            </div>
+                            <div className="dropdown-row-meta">
+                              <span className="dropdown-row-title">{track.title || 'Unknown Title'}</span>
+                              <span className="dropdown-row-subtitle">
+                                {track.artist || 'Unknown Artist'} • Online
+                              </span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="dropdown-section-header">Local PC Music Results</div>
+                    {filteredTracks.length === 0 ? (
+                      <div className="dropdown-empty-state">No local tracks found for "{searchQuery}"</div>
+                    ) : (
+                      <div className="dropdown-list scrollable">
+                        {filteredTracks.slice(0, 15).map((track) => (
+                          <div
+                            key={`result-${track.filePath}`}
+                            className="dropdown-row"
+                            onClick={() => handleSelectTrack(track)}
+                          >
+                            <div className="dropdown-row-cover">
+                              {track.coverArt ? (
+                                <img src={track.coverArt} alt="" />
+                              ) : (
+                                <Music2 size={16} />
+                              )}
+                            </div>
+                            <div className="dropdown-row-meta">
+                              <span className="dropdown-row-title">{track.title || 'Unknown Title'}</span>
+                              <span className="dropdown-row-subtitle">
+                                {track.artist || 'Unknown Artist'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

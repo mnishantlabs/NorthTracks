@@ -236,22 +236,34 @@ const EXCLUDED_KEYWORDS = [
   'voicemail'
 ];
 
-// Enhanced regex matching call recordings, phone numbers (+91...), spam alerts, voice memos, WAV clips, and system audio logs
-const RECORDING_FILENAME_REGEX = /(^\+?\d{7,}(-\d+)?$)|(^\+?\d{10,})|(^1800\d+)|(^(wav|rec|call|voice|recording|audiorecord|sound|track|memo|aud)[_-])|\b(rec(ording)?|call_rec|call|voice_note|aud-\d|ptt-\d|sound_rec|dictation|speech|zoom_\d|meeting|voice\d*|wav_\d*|rec_\d*|spam|alert|truecaller|jio|airtel|voicemail)\b|(\-\d{8,})|(_\d{8,})/i;
+// Enhanced regex matching call recordings, phone numbers (+91...), podcasts, spam alerts, voice memos, WAV clips, and system audio logs
+const RECORDING_FILENAME_REGEX = /(^\+?\d{7,}(-\d+)?$)|(^\+?\d{10,})|(^1800\d+)|(^(wav|rec|call|voice|recording|audiorecord|sound|track|memo|aud)[_-])|\b(rec(ording)?|call_rec|call|voice_note|aud-\d|ptt-\d|sound_rec|dictation|speech|zoom_\d|meeting|voice\d*|wav_\d*|rec_\d*|spam|alert|truecaller|jio|airtel|voicemail|podcast|episode|talk|interview|audiobook)\b|(\-\d{8,})|(_\d{8,})/i;
 
-export function isRecordingTrack(titleOrPath: string, artist?: string, album?: string): boolean {
+export function isRecordingTrack(titleOrPath: string, artist?: string, album?: string, duration?: number): boolean {
   if (!titleOrPath) return false;
   const cleanStr = titleOrPath.toLowerCase().trim();
+  const filename = path.basename(cleanStr);
   
-  // Check phone number format (+912268910001...) or spam alert strings
-  if (/^\+?\d{7,}/.test(cleanStr)) return true;
-  if (cleanStr.includes('spam alert') || cleanStr.includes('call recording') || cleanStr.includes('voice recording')) return true;
-  
-  const matchesRegex = RECORDING_FILENAME_REGEX.test(cleanStr);
+  // Phone numbers (+91..., 022..., 9876543210...)
+  if (/(^\+?\d{7,})|(\b0?\d{10,}\b)|(\+91\d+)|(\d{3,4}[-._]\d{6,})/.test(filename)) return true;
+
+  // Recording, voice memo, spam, call recording, podcast, audiobook keywords
+  const recordingKeywords = [
+    'spam alert', 'call recording', 'voice recording', 'call_rec', 'callrec', 'rec_', 'aud-', 'ptt-',
+    'voicemail', 'truecaller', 'jio', 'airtel', 'sound_recorder', 'voice_notes', 'whatsapp audio',
+    'telegram audio', 'dictation', 'speech', 'meeting', 'zoom', 'podcast', 'episode', 'interview',
+    'audiobook', 'speech_rec', 'voice_memo'
+  ];
+
+  if (recordingKeywords.some(k => cleanStr.includes(k))) return true;
+  if (RECORDING_FILENAME_REGEX.test(filename)) return true;
+
+  // Short clips (< 12 seconds) are likely sound effects/ringtones
+  if (duration !== undefined && duration > 0 && duration < 12) return true;
+
   const isUnknownArtist = !artist || artist.toLowerCase() === 'unknown artist' || artist.toLowerCase() === 'unknown';
   const isUnknownAlbum = !album || album.toLowerCase() === 'unknown album' || album.toLowerCase() === 'unknown';
-  
-  if (matchesRegex && (isUnknownArtist || isUnknownAlbum)) {
+  if ((isUnknownArtist || isUnknownAlbum) && RECORDING_FILENAME_REGEX.test(cleanStr)) {
     return true;
   }
   return false;
@@ -273,7 +285,8 @@ export async function fastScanAllDrives(
   allowedExtensions?: string[]
 ): Promise<TrackInfo[]> {
   resetScanCancellation();
-  const roots = (targetRoots && targetRoots.length > 0) ? targetRoots : getSystemDrives();
+  const defaultMusicDir = path.join(os.homedir(), 'Music');
+  const roots = (targetRoots && targetRoots.length > 0) ? targetRoots : [defaultMusicDir];
   const audioCandidates: string[] = [];
   let scannedFiles = 0;
   const audioExtensions = (allowedExtensions && allowedExtensions.length > 0) 

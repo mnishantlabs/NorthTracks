@@ -26,14 +26,18 @@ This document summarizes all key architectural improvements, feature additions, 
 
 ---
 
-## 🔍 Smart Media Catalog Scanner & Call Recording Filter
+## 🔍 Smart Media Catalog Scanner, Stale File Purging & Call Recording Filter
 
-- **Enhanced Recording Detection**:
-  - Updated `scanner.ts` with `isRecordingTrack` helper and regex matching phone numbers (`+91...`), spam alert audio (`(Spam Alert From Jio)...`), and voice recordings (`rec_`, `aud-`, `callrec`, etc.).
-- **Automatic Library Filter**:
-  - Filtered non-music recordings from `App.tsx`, `HomeView.tsx`, and `LibraryView.tsx` automatically.
-- **User Settings Toggle**:
-  - Added **"Filter call & voice recordings"** toggle under Settings.
+- **OS Music Folder Default Scanning**:
+  - Default scanning in `scanner.ts` strictly targets the OS Music folder (`path.join(os.homedir(), 'Music')`), preventing rogue scanning of entire PC drives, system folders, or AppData.
+- **Disk Existence Validation & Automatic Stale Purging**:
+  - `get-library` IPC handler in `main.ts` verifies `fs.existsSync(track.filePath)`.
+  - When music files are deleted from disk by the user, they are automatically purged from `library.json` so deleted tracks disappear instantly from the app.
+- **Enhanced Call Recording & Podcast Filter**:
+  - `isRecordingTrack` in `scanner.ts` filters phone numbers (`+91...`, `022...`), call recordings (`call_rec`, `rec_`, `aud-`, `ptt-`), WhatsApp audio, Jio/Airtel spam alerts, podcasts, audiobooks, and short sound clips (<12s).
+- **Context-Aware Search Bar (Explore vs Local)**:
+  - When on the **Explore** tab, search queries fetch and display online music catalog results (`searchOnlineMusic`).
+  - When on **Home** or **Library**, search queries exclusively search local PC tracks from the OS Music folder.
 
 ---
 

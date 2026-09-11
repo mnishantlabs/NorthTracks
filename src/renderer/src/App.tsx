@@ -1689,6 +1689,7 @@ export default function App() {
             libraryTracks={libraryTracks}
             onPlayTrack={handlePlayTrack}
             onNavigateHome={() => setCurrentView('home')}
+            currentView={currentView}
           />
 
           {/* Floating Window Controls */}
