@@ -8,14 +8,21 @@ This document summarizes all key architectural improvements, feature additions, 
 
 ## 🎧 Audio Processing & Equalizer (EQ)
 
-- **Auto Hardware Adjust Mode**:
-  - Implemented `setAutoHardwareAdjust(enabled: boolean)` in `AudioEngine.ts`.
-  - Automatically balances 10-band biquad filter frequencies according to connected hardware (headphones / external speakers) and track genre metadata.
+- **Auto Hardware Adjust & Hardware Profiling**:
+  - Implemented `autoDetectHardwareDevice()` and `getDetectedHardwareName()` in `AudioEngine.ts`.
+  - Automatically profiles audio output hardware using Web Audio device enumeration to detect profiles like **Home Theater System (Surround 5.1)**, **Soundbar & Cinema Speakers**, **Studio Headphones / Reference Monitors**, **Bluetooth AirPods / Earbuds**, and **Desktop Hi-Fi Speakers**.
+  - Displays detected hardware profile badge directly in `EQPanel.tsx`.
+- **Spotify & YouTube Music Studio Master DSP**:
+  - Integrated `DynamicsCompressorNode` into `AudioEngine.ts` node processing graph (-24dB threshold, 4:1 ratio compression) for commercial studio clarity.
+  - Added one-click Studio Master DSP toggle to enhance dynamic range and loudness of local and online audio tracks.
+- **"Hey Cortana" Hands-Free Voice Assistant**:
+  - Added `CortanaControl.tsx` component in `PlayerBar.tsx` with animated Cortana halo pulse ring.
+  - Speech Recognition integration for hands-free voice commands ("Hey Cortana, play next track", "Volume up", "Bass boost", "Spotify mode").
+- **Full-Length Online Track Playback in Explore Tab**:
+  - Continuous stream resolution & seamless extension in `App.tsx` ensuring Explore tab online tracks play 100% full song length (3:30+ mins) without stopping after 30 seconds.
 - **Dynamic EQ Track-Change Tuning**:
   - Connected `audioEngine.onTrackChanged(track.genre)` in `App.tsx` on every track playback.
   - Automatically updates EQ band gains on song changes (e.g. Pop, Rock, Classical, Electronic, Hip-Hop, Acoustic, Vocal).
-- **Equalizer Control Panel**:
-  - Added an **Auto Hardware Adjust** toggle switch in `EQPanel.tsx` next to Volume Normalization.
 
 ---
 

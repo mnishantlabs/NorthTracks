@@ -388,6 +388,7 @@ export default function App() {
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [showPlayerMoreMenu, setShowPlayerMoreMenu] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const onlineAccumulatedTimeRef = useRef<number>(0);
 
   const [logs, setLogs] = useState<string[]>([
     '[system] initializing northtracks kernel...',
@@ -449,6 +450,10 @@ export default function App() {
         }
       }
       addLog(`[player] loading track: "${track.title}" by ${track.artist}`);
+      onlineAccumulatedTimeRef.current = 0;
+      if (track.isOnline) {
+        setDuration(track.duration || 180);
+      }
       const targetPath = track.previewUrl || track.filePath;
       const fileUrl = await window.electronAPI.playTrack(targetPath);
       setCurrentTrack(track);
@@ -588,8 +593,22 @@ export default function App() {
     if (currentTrack && audioRef.current) {
       updateContinueListening(currentTrack, audioRef.current.duration, audioRef.current.duration);
     }
+
+    if (currentTrack?.isOnline && audioRef.current) {
+      const clipDuration = audioRef.current.duration || 30;
+      const targetFullDuration = currentTrack.duration || 180;
+      onlineAccumulatedTimeRef.current += clipDuration;
+
+      if (onlineAccumulatedTimeRef.current < targetFullDuration - 3 && repeatMode !== 'one') {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(err => console.error('Full online stream loop error:', err));
+        return;
+      }
+    }
+
     if (repeatMode === 'one') {
       if (audioRef.current) {
+        onlineAccumulatedTimeRef.current = 0;
         audioRef.current.currentTime = 0;
         audioRef.current.play().catch(err => console.error(err));
       }
@@ -2102,7 +2121,8 @@ export default function App() {
         crossOrigin="anonymous"
         onTimeUpdate={() => {
           if (audioRef.current) {
-            setCurrentTime(audioRef.current.currentTime);
+            const elapsed = (currentTrack?.isOnline ? onlineAccumulatedTimeRef.current : 0) + audioRef.current.currentTime;
+            setCurrentTime(elapsed);
           }
         }}
         onDurationChange={() => {

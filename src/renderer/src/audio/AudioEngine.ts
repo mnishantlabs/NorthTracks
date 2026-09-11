@@ -59,6 +59,9 @@ export class AudioEngine {
   private stereoPanner: StereoPannerNode | null = null;
   private analyser: AnalyserNode | null = null;
 
+  private compressor: DynamicsCompressorNode | null = null;
+  private detectedHardwareName: string = 'Detecting Audio Output...';
+
   // Local state tracking
   private initialized = false;
   private currentAudioElement: HTMLAudioElement | null = null;
@@ -72,7 +75,51 @@ export class AudioEngine {
   private listeners: Set<(state: AudioEngineState) => void> = new Set();
 
   constructor() {
-    // Note: AudioContext setup will wait until initialize() is called.
+    this.autoDetectHardwareDevice();
+  }
+
+  public async autoDetectHardwareDevice(): Promise<string> {
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
+        for (const dev of audioOutputs) {
+          const label = dev.label.toLowerCase();
+          if (label.includes('home theater') || label.includes('surround') || label.includes('5.1') || label.includes('7.1') || label.includes('av receiver')) {
+            this.detectedHardwareName = 'Home Theater System (Surround 5.1)';
+            this.emitStateChange();
+            return this.detectedHardwareName;
+          }
+          if (label.includes('soundbar') || label.includes('cinema') || label.includes('tv audio')) {
+            this.detectedHardwareName = 'Soundbar & Cinema Speakers';
+            this.emitStateChange();
+            return this.detectedHardwareName;
+          }
+          if (label.includes('headphone') || label.includes('headset') || label.includes('monitor') || label.includes('studio')) {
+            this.detectedHardwareName = 'Studio Headphones / Reference Monitors';
+            this.emitStateChange();
+            return this.detectedHardwareName;
+          }
+          if (label.includes('airpods') || label.includes('bud') || label.includes('bluetooth') || label.includes('earphone')) {
+            this.detectedHardwareName = 'Bluetooth AirPods / Earbuds';
+            this.emitStateChange();
+            return this.detectedHardwareName;
+          }
+          if (label.includes('speaker') || label.includes('realtek') || label.includes('hifi')) {
+            this.detectedHardwareName = 'Desktop Hi-Fi Speakers';
+            this.emitStateChange();
+            return this.detectedHardwareName;
+          }
+        }
+      }
+    } catch (e) {}
+    this.detectedHardwareName = 'Calibrated High-Fidelity Audio Device';
+    this.emitStateChange();
+    return this.detectedHardwareName;
+  }
+
+  public getDetectedHardwareName(): string {
+    return this.detectedHardwareName;
   }
 
   /**
@@ -128,22 +175,30 @@ export class AudioEngine {
       return filter;
     });
 
-    // 4. Reverb Nodes (ConvolverNode + Dry/Wet crossfade GainNodes)
+    // 4. Spotify / YouTube Music Master Dynamics Compressor
+    this.compressor = this.ctx.createDynamicsCompressor();
+    this.compressor.threshold.setValueAtTime(-24, this.ctx.currentTime);
+    this.compressor.knee.setValueAtTime(30, this.ctx.currentTime);
+    this.compressor.ratio.setValueAtTime(4, this.ctx.currentTime);
+    this.compressor.attack.setValueAtTime(0.003, this.ctx.currentTime);
+    this.compressor.release.setValueAtTime(0.25, this.ctx.currentTime);
+
+    // 5. Reverb Nodes (ConvolverNode + Dry/Wet crossfade GainNodes)
     this.convolver = this.ctx.createConvolver();
     this.convolver.buffer = this.generateImpulse(2, 2);
 
     this.reverbDryGain = this.ctx.createGain();
     this.reverbWetGain = this.ctx.createGain();
 
-    // 5. Spatial Node (StereoPannerNode)
+    // 6. Spatial Node (StereoPannerNode)
     this.stereoPanner = this.ctx.createStereoPanner();
 
-    // 6. Analyser Node
+    // 7. Analyser Node
     this.analyser = this.ctx.createAnalyser();
     this.analyser.fftSize = 2048;
 
     // Establish Node Chain:
-    // source -> gainNode -> 10 EQ filters -> convolver (parallel dry/wet) -> stereoPanner -> analyser -> destination
+    // source -> gainNode -> 10 EQ filters -> compressor -> convolver (parallel dry/wet) -> stereoPanner -> analyser -> destination
 
     this.source.connect(this.gainNode);
 
@@ -154,9 +209,12 @@ export class AudioEngine {
       lastNode = filter;
     }
 
-    // Connect 10th EQ output to both Reverb Wet Path (Convolver) and Dry Path
-    lastNode.connect(this.convolver);
-    lastNode.connect(this.reverbDryGain);
+    // Connect 10th EQ output to Dynamics Compressor
+    lastNode.connect(this.compressor);
+
+    // Connect Compressor to Reverb Wet Path & Dry Path
+    this.compressor.connect(this.convolver);
+    this.compressor.connect(this.reverbDryGain);
 
     // Wet path: Convolver connects to its own gain control
     this.convolver.connect(this.reverbWetGain);

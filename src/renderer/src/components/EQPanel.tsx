@@ -98,9 +98,14 @@ export const EQPanel: React.FC<EQPanelProps> = ({ isOpen, onClose, audioEngine }
     <div className={`eq-panel ${isOpen ? 'eq-open' : 'eq-closed'}`}>
       {/* Header section */}
       <div className="eq-header">
-        <div className="eq-title-section">
-          <Sliders size={16} className="eq-title-icon" />
-          <h3>Equalizer</h3>
+        <div className="eq-title-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Sliders size={16} className="eq-title-icon" />
+            <h3>Equalizer</h3>
+          </div>
+          <span style={{ fontSize: '11px', color: 'var(--primary, #7c5cbf)', fontWeight: 600 }}>
+            {audioEngine.getDetectedHardwareName()}
+          </span>
         </div>
 
         <div className="eq-controls-right">

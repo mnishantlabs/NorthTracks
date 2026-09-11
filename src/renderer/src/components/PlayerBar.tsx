@@ -27,6 +27,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { Track } from './LibraryView';
+import { CortanaControl } from './CortanaControl';
 
 interface PlayerBarProps {
   currentTrack: Track | null;
@@ -809,6 +810,17 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
             <div style={volumeThumbStyle} />
           </div>
         </div>
+
+        {/* Cortana Assistant & Studio DSP Control */}
+        <CortanaControl
+          isPlaying={isPlaying}
+          onTogglePlay={handleTogglePlay}
+          onNextTrack={handleNextTrack}
+          onPrevTrack={handlePrevTrack}
+          volume={volume}
+          setVolume={setVolume}
+          addLog={addLog}
+        />
 
         {/* Queue toggle button */}
         <button
