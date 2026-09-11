@@ -18,17 +18,16 @@ This document summarizes all key architectural improvements, feature additions, 
 - **"Hey Cortana" Hands-Free Voice Assistant**:
   - Added `CortanaControl.tsx` component in `PlayerBar.tsx` with animated Cortana halo pulse ring.
   - Speech Recognition integration for hands-free voice commands ("Hey Cortana, play next track", "Volume up", "Bass boost", "Spotify mode").
-- **Full-Length Online Track Playback in Explore Tab**:
-  - Continuous stream resolution & seamless extension in `App.tsx` ensuring Explore tab online tracks play 100% full song length (3:30+ mins) without stopping after 30 seconds.
-- **Adaptive AGC Loudness & Pitch Auto-Adjustment**:
-  - Implemented `startAdaptiveLoudnessControl()` in `AudioEngine.ts` running a real-time Automatic Gain Control (AGC) loop every 250ms.
-  - Smoothly equalizes RMS volume level (-14 LUFS target) when switching from quiet tracks (acoustic/lofi) to loud tracks (EDM/rock), preventing sudden volume spikes.
-- **Personalized Recommendations in Explore Tab**:
-  - Added `"Picked for You Based on Your Listening"` section in `ExploreView.tsx`.
-  - Automatically queries online music catalog matching the user's most played artist/genre (e.g. `"Recommended Hits (Because You Listen to Charli XCX)"`).
-- **Explore Tab Card Layout Matching Home View**:
-  - Re-styled Explore tab category & recommendation cards to match the Home screen (1:1 ratio 150px square cover art, `borderRadius: 8px`, `fontWeight: 600` title, subtext underneath).
-  - Removed icon clutter and fake text strings (`500+ Trending Tracks`).
+- **Online Track Duration Sync & Timer Glitch Fix**:
+  - Updated `onDurationChange` and `onTimeUpdate` in `App.tsx` to preserve full track duration (e.g. 3:45 mins) for online songs without letting HTML5 audio overwrite duration state to 30s.
+  - Ensures smooth, linear time progression (`0:00 -> 3:45`) without resets or time display mismatches.
+- **Show All Playlists Navigation**:
+  - Added **"Show All Playlists →"** button next to *"Your Playlists"* in `HomeView.tsx` that opens the complete Playlists view on click.
+- **Infinite Scroll & Endless Online Music Stream**:
+  - Implemented infinite scroll in `ExploreView.tsx` (`containerRef` scroll listener) that automatically loads and appends new online tracks as the user scrolls down.
+  - Powered by smart local storage caching (`northtracks-explore-cache`) for instant load & restore.
+- **Standardized Playlist Font Thickness**:
+  - Refined font weights across Home and Explore views (`fontWeight: 600` for section titles, `fontWeight: 500` for card titles, `fontWeight: 400` for sub-labels).
 
 ---
 

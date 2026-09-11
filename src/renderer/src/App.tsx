@@ -2123,12 +2123,17 @@ export default function App() {
         onTimeUpdate={() => {
           if (audioRef.current) {
             const elapsed = (currentTrack?.isOnline ? onlineAccumulatedTimeRef.current : 0) + audioRef.current.currentTime;
-            setCurrentTime(elapsed);
+            const maxDuration = (currentTrack?.isOnline && currentTrack.duration) ? currentTrack.duration : (audioRef.current.duration || 0);
+            setCurrentTime(Math.min(elapsed, maxDuration));
           }
         }}
         onDurationChange={() => {
           if (audioRef.current) {
-            setDuration(audioRef.current.duration);
+            if (currentTrack?.isOnline && currentTrack.duration && currentTrack.duration > 30) {
+              setDuration(currentTrack.duration);
+            } else {
+              setDuration(audioRef.current.duration || 0);
+            }
           }
         }}
         onEnded={handleTrackEnded}

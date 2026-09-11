@@ -158,6 +158,8 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   
   const [loading, setLoading] = useState(false);
   const [visibleCount, setVisibleCount] = useState(30);
+  const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [downloadingMap, setDownloadingMap] = useState<Record<string, boolean>>({});
   const [downloadedMap, setDownloadedMap] = useState<Record<string, boolean>>({});
   const [accountModalOpen, setAccountModalOpen] = useState(false);
@@ -166,6 +168,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   const [personalizedRecs, setPersonalizedRecs] = useState<Track[]>([]);
   const [personalizedLabel, setPersonalizedLabel] = useState<string>('Picked for You Today');
 
+  const containerRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const categoriesScrollRef = useRef<HTMLDivElement>(null);
   const recsScrollRef = useRef<HTMLDivElement>(null);
@@ -262,6 +265,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   // Load category tracks with disk caching
   const fetchCatalog = async (term: string) => {
     const cacheKey = `northtracks-explore-cache-${term}`;
+    setPage(1);
     
     // Read local cache first to ensure instant tab switching without whiteout
     try {
@@ -270,6 +274,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         const parsed = JSON.parse(savedCache);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setOnlineTracks(parsed);
+          setVisibleCount(30);
         }
       }
     } catch (e) {
@@ -282,7 +287,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         const results = await window.electronAPI.searchOnlineMusic(term);
         if (Array.isArray(results) && results.length > 0) {
           setOnlineTracks(results);
-          // Persist in local storage cache
+          setVisibleCount(30);
           try {
             localStorage.setItem(cacheKey, JSON.stringify(results));
           } catch (e) {
@@ -296,6 +301,52 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
       setLoading(false);
     }
   };
+
+  const loadMoreTracks = async () => {
+    if (loadingMore || loading) return;
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    const searchTerms = [`${activeCategory} hits`, `${activeCategory} top`, `${activeCategory} classic`, `${activeCategory} trending`, `${activeCategory} popular`];
+    const term = searchTerms[nextPage % searchTerms.length] || activeCategory;
+    
+    try {
+      if (window.electronAPI?.searchOnlineMusic) {
+        const newResults = await window.electronAPI.searchOnlineMusic(term);
+        if (Array.isArray(newResults) && newResults.length > 0) {
+          setOnlineTracks(prev => {
+            const existingIds = new Set(prev.map(t => t.previewUrl || t.filePath || t.title));
+            const filteredNew = newResults.filter(t => !existingIds.has(t.previewUrl || t.filePath || t.title));
+            const updated = [...prev, ...filteredNew];
+            try {
+              localStorage.setItem(`northtracks-explore-cache-${activeCategory}`, JSON.stringify(updated.slice(0, 150)));
+            } catch (e) {}
+            return updated;
+          });
+          setPage(nextPage);
+          setVisibleCount(prev => prev + 25);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load more online tracks:', e);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Infinite scroll listener on main container
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 350) {
+        loadMoreTracks();
+      }
+    };
+
+    el.addEventListener('scroll', handleScroll);
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, [activeCategory, page, loadingMore, loading, onlineTracks.length]);
 
   useEffect(() => {
     fetchCatalog(activeCategory);
@@ -388,7 +439,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   const displayedTracks = onlineTracks.slice(0, visibleCount);
 
   return (
-    <div className="content-area fade-in" style={{ padding: '20px 24px', height: '100%', overflowY: 'auto', gap: '22px', display: 'flex', flexDirection: 'column' }}>
+    <div ref={containerRef} className="content-area fade-in" style={{ padding: '20px 24px', height: '100%', overflowY: 'auto', gap: '22px', display: 'flex', flexDirection: 'column' }}>
       
       {/* Account Sign In / Sync Modal */}
       <AccountSignInModal 

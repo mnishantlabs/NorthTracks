@@ -337,9 +337,31 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
           {/* Second Section: Your Playlists */}
           <div style={{ marginBottom: '24px' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '12px' }}>
-              Your Playlists
-            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                Your Playlists
+              </h2>
+              {onNavigateToPlaylists && (
+                <button
+                  onClick={onNavigateToPlaylists}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-secondary)',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    transition: 'color 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--primary, #7c5cbf)'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+                >
+                  Show All Playlists →
+                </button>
+              )}
+            </div>
             <div 
               ref={playlistsScrollRef}
               style={{ 
