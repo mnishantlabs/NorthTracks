@@ -206,6 +206,24 @@ export const EQPanel: React.FC<EQPanelProps> = ({ isOpen, onClose, audioEngine }
           </div>
         </div>
 
+        {/* Auto Hardware Adjust block */}
+        <div className="eq-normalization-section" style={{ marginBottom: '12px' }}>
+          <div className="eq-normalization-info">
+            <span className="eq-section-label">AUTO HARDWARE ADJUST</span>
+            <p className="eq-normalization-desc">
+              Auto-balances frequencies based on connected hardware & track genre.
+            </p>
+          </div>
+          <label className="switch-toggle" title="Toggle Auto Hardware Adjust">
+            <input
+              type="checkbox"
+              checked={engineState.currentPreset === 'AUTO'}
+              onChange={(e) => audioEngine.setAutoHardwareAdjust(e.target.checked)}
+            />
+            <span className="switch-slider"></span>
+          </label>
+        </div>
+
         {/* Volume Normalization block */}
         <div className="eq-normalization-section">
           <div className="eq-normalization-info">

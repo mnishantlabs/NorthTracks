@@ -13,7 +13,9 @@ import {
   ListMusic,
   FileText,
   Share2,
-  X
+  X,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { Track } from './LibraryView';
 import { useArtistImage } from '../hooks/useArtistImage';
@@ -104,6 +106,8 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   isPlaying,
   currentTime,
   duration,
+  volume,
+  onVolumeChange,
   isShuffle,
   onToggleShuffle,
   repeatMode,
@@ -175,6 +179,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
 
   const handleClose = () => {
     setIsOpen(false);
+    onClose();
   };
 
   const handleTransitionEnd = () => {
@@ -540,6 +545,41 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
                 >
                   {repeatMode === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
                 </button>
+              </div>
+
+              {/* Volume Slider Controls */}
+              <div className="now-playing-volume-section-centered" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginTop: '18px', width: '220px', margin: '18px auto 0 auto' }}>
+                <button
+                  onClick={() => {
+                    const syntheticEvent = {
+                      target: { value: volume > 0 ? '0' : '0.8' }
+                    } as React.ChangeEvent<HTMLInputElement>;
+                    onVolumeChange(syntheticEvent);
+                  }}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}
+                  title={volume === 0 ? "Unmute" : "Mute"}
+                >
+                  {volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                </button>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={volume}
+                  onChange={onVolumeChange}
+                  style={{
+                    flex: 1,
+                    accentColor: 'var(--primary, #7c5cbf)',
+                    cursor: 'pointer',
+                    height: '4px',
+                    borderRadius: '2px'
+                  }}
+                  title={`Volume: ${Math.round(volume * 100)}%`}
+                />
+                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', width: '32px', textAlign: 'right' }}>
+                  {Math.round(volume * 100)}%
+                </span>
               </div>
             </div>
           ) : (

@@ -31,6 +31,7 @@ import { PlaylistContextMenu } from './components/PlaylistContextMenu';
 import { TrackInfoModal } from './components/TrackInfoModal';
 import { PlayerBar } from './components/PlayerBar';
 import { PlaylistsView } from './components/PlaylistsView';
+import { AutoScanModal } from './components/AutoScanModal';
 
 // Seeded pseudo-random number generator (LCG)
 function seedRandom(seedStr: string) {
@@ -179,6 +180,7 @@ export default function App() {
   const [backTab, setBackTab] = useState<'home' | 'explore' | 'library' | 'liked' | 'genre'>('explore');
   const [customGenreCovers, setCustomGenreCovers] = useState<Record<string, string>>({});
   const [updateStatus, setUpdateStatus] = useState<'update-available' | 'update-downloaded' | null>(null);
+  const [showAutoScanModal, setShowAutoScanModal] = useState(false);
 
   // Load liked artists on mount
   useEffect(() => {
@@ -447,7 +449,8 @@ export default function App() {
         }
       }
       addLog(`[player] loading track: "${track.title}" by ${track.artist}`);
-      const fileUrl = await window.electronAPI.playTrack(track.filePath);
+      const targetPath = track.previewUrl || track.filePath;
+      const fileUrl = await window.electronAPI.playTrack(targetPath);
       setCurrentTrack(track);
       let trackVolume = 0.4;
       try {
@@ -472,6 +475,9 @@ export default function App() {
         audioRef.current.play().catch(err => console.error('Audio playback error:', err));
         setIsPlaying(true);
         updateMediaSession(track, true);
+
+        // Notify Audio Engine of track change to trigger Auto EQ frequency tuning
+        audioEngine.onTrackChanged(track.genre);
 
         // Auto-normalization on track change
         const saved = localStorage.getItem('eq-settings');
@@ -719,12 +725,13 @@ export default function App() {
   const loadDashboardData = async () => {
     if (window.electronAPI) {
       try {
-        const [pl, lib, act, settings, liked] = await Promise.all([
+        const [pl, lib, act, settings, liked, genreTracks] = await Promise.all([
           window.electronAPI.getPlaylists(),
           window.electronAPI.getLibrary(),
           window.electronAPI.getActivities(),
           window.electronAPI.getSettings(),
           window.electronAPI.getLikedTracks ? window.electronAPI.getLikedTracks() : Promise.resolve([]),
+          window.electronAPI.getGenreFolders ? window.electronAPI.getGenreFolders(true) : Promise.resolve([]),
         ]);
         setPlaylists(pl || []);
         setActivities(act || []);
@@ -736,10 +743,33 @@ export default function App() {
           document.documentElement.setAttribute('data-visual', 'solid');
         }
 
-        const initialTracks = settings?.cachedLibrary && settings.cachedLibrary.length > 0
-          ? settings.cachedLibrary
+        const isRecordingTrack = (t: Track): boolean => {
+          const cleanTitle = (t.title || '').toLowerCase();
+          const cleanPath = (t.filePath || '').toLowerCase();
+          const cleanArtist = (t.artist || '').toLowerCase();
+          const cleanAlbum = (t.album || '').toLowerCase();
+
+          if (/^\+?\d{7,}/.test(cleanTitle) || /^\+?\d{7,}/.test(cleanPath)) return true;
+          if (cleanTitle.includes('spam alert') || cleanTitle.includes('call recording') || cleanTitle.includes('voice recording')) return true;
+          if (cleanPath.includes('spam alert') || cleanPath.includes('call recording') || cleanPath.includes('callrec')) return true;
+
+          const RECORDING_REGEX = /(^\+?\d{7,}(-\d+)?$)|(^\+?\d{10,})|(^1800\d+)|(^(wav|rec|call|voice|recording|audiorecord|sound|track|memo|aud)[_-])|\b(rec(ording)?|call_rec|call|voice_note|aud-\d|ptt-\d|sound_rec|dictation|speech|zoom_\d|meeting|voice\d*|wav_\d*|rec_\d*|spam|alert|truecaller|jio|airtel|voicemail)\b|(\-\d{8,})|(_\d{8,})/i;
+
+          const matchesRegex = RECORDING_REGEX.test(cleanTitle) || RECORDING_REGEX.test(cleanPath);
+          const isUnknownArtist = !cleanArtist || cleanArtist === 'unknown artist' || cleanArtist === 'unknown';
+          const isUnknownAlbum = !cleanAlbum || cleanAlbum === 'unknown album' || cleanAlbum === 'unknown';
+
+          return matchesRegex && (isUnknownArtist || isUnknownAlbum);
+        };
+
+        const musicFolderTracks = (genreTracks && genreTracks.length > 0 ? genreTracks : []).filter((t: Track) => !isRecordingTrack(t));
+        const rawInitial = settings?.cachedLibrary && settings.cachedLibrary.length > 0 
+          ? settings.cachedLibrary 
           : (lib || []);
+        const initialTracks = (musicFolderTracks.length > 0 ? musicFolderTracks : rawInitial).filter((t: Track) => !isRecordingTrack(t));
+
         setLibraryTracks(initialTracks);
+        setBrowseLibrary(musicFolderTracks.length > 0 ? musicFolderTracks : initialTracks);
 
         setContinueListening(settings?.continueListening || []);
 
@@ -1325,7 +1355,7 @@ export default function App() {
       // 7. Update custom playlists track file paths
       const updatedPlaylists = playlists.map(pl => ({
         ...pl,
-        tracks: pl.tracks.map(filePath => {
+        tracks: pl.tracks.map((filePath: string) => {
           const normalizedPath = filePath.replace(/\//g, '\\');
           if (normalizedPath.toLowerCase().startsWith(oldGenrePrefix)) {
             return newGenrePrefix + normalizedPath.slice(oldGenrePrefix.length);
@@ -1413,8 +1443,8 @@ export default function App() {
       const playlist = playlists.find(p => p.id === playlistId);
       if (playlist && playlist.tracks.length > 0) {
         const playlistTracks = playlist.tracks
-          .map(path => libraryTracks.find(t => t.filePath === path))
-          .filter((t): t is Track => !!t);
+          .map((path: string) => libraryTracks.find(t => t.filePath === path))
+          .filter((t: Track | undefined): t is Track => !!t);
         if (playlistTracks.length > 0) {
           handlePlayTrack(playlistTracks[0], playlistTracks);
         }
@@ -1572,6 +1602,39 @@ export default function App() {
     day: 'numeric'
   });
 
+  const [downloadingPaths, setDownloadingPaths] = useState<string[]>([]);
+  const [downloadedPaths, setDownloadedPaths] = useState<string[]>([]);
+
+  const handleDownloadTrack = async (track: Track) => {
+    if (!window.electronAPI?.downloadOnlineTrack) return;
+    const trackId = track.previewUrl || track.filePath;
+    if (downloadingPaths.includes(trackId)) return;
+
+    setDownloadingPaths(prev => [...prev, trackId]);
+    addLog(`[downloader] downloading "${track.title}" by ${track.artist} to PC Music folder...`);
+
+    try {
+      const res = await window.electronAPI.downloadOnlineTrack(track);
+      if (res && res.success) {
+        setDownloadedPaths(prev => [...prev, trackId]);
+        addLog(`[downloader] successfully downloaded and saved to Music folder: "${res.track?.title || track.title}"`);
+
+        // Refresh local library tracks
+        if (res.track) {
+          setLibraryTracks(prev => [res.track, ...prev.filter(t => t.filePath !== res.track.filePath)]);
+          setBrowseLibrary(prev => [res.track, ...prev.filter(t => t.filePath !== res.track.filePath)]);
+        }
+      } else {
+        addLog(`[downloader] download failed: ${res?.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      console.error('Failed to download track:', err);
+      addLog(`[downloader] download error: ${err.message}`);
+    } finally {
+      setDownloadingPaths(prev => prev.filter(p => p !== trackId));
+    }
+  };
+
   return (
     <div className="app-container" style={{ position: 'relative' }}>
 
@@ -1650,10 +1713,14 @@ export default function App() {
                 <ExploreView
                   onNavigateToGenre={(genre) => { setBackTab('explore'); setSelectedGenre(genre); setCurrentView('genre'); }}
                   tracks={browseLibrary}
-                  playCounts={playCounts}
                   onPlayTrack={handlePlayTrack}
-                  onEditTrack={handleEditTrackClick}
                   onNavigateToArtist={handleNavigateToArtist}
+                  onDownloadTrack={handleDownloadTrack}
+                  likedTracks={likedTracks}
+                  onToggleLike={handleToggleLike}
+                  downloadingPaths={downloadingPaths}
+                  downloadedPaths={downloadedPaths}
+                  onNavigateToSettings={() => { setSettingsCategory('integrations'); setCurrentView('preferences'); }}
                 />
               ) : currentView === 'genre' ? (
                 <GenreView
@@ -1733,7 +1800,7 @@ export default function App() {
                   onEditTrack={handleEditTrackClick}
                 />
               ) : currentView === 'preferences' ? (
-                <SettingsView settingsCategory={settingsCategory} />
+                <SettingsView settingsCategory={settingsCategory} onOpenAutoScan={() => setShowAutoScanModal(true)} />
               ) : (
                 <main className="content-area fade-in">
                   {/* TAB 1: DASHBOARD */}
@@ -2024,6 +2091,7 @@ export default function App() {
             playlists={playlists}
             onAddToPlaylist={handleAddTrackToPlaylist}
             onCreatePlaylistWithTrack={handleCreatePlaylistWithTrack}
+            onDownloadTrack={handleDownloadTrack}
           />
         </div> {/* Close app-main */}
       </div> {/* Close main-content */}
@@ -2387,6 +2455,13 @@ export default function App() {
           )}
         </div>
       )}
+
+      {/* Rapid PC Music Scanner & Auto-Organize Modal */}
+      <AutoScanModal
+        isOpen={showAutoScanModal}
+        onClose={() => setShowAutoScanModal(false)}
+        onScanComplete={loadDashboardData}
+      />
     </div>
   );
 }

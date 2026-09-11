@@ -229,6 +229,22 @@ export class AudioEngine {
   }
 
   /**
+   * Auto-adjusts EQ parameters based on connected hardware & track frequencies
+   */
+  setAutoHardwareAdjust(enabled: boolean): void {
+    this.isAutoMode = enabled;
+    if (enabled) {
+      this.currentPresetName = 'AUTO';
+      this.applyAutoPresetForGenre(this.currentTrackGenre);
+    } else {
+      this.currentPresetName = 'FLAT';
+      this.eqBands = [...FLAT];
+      this.applyEQBands();
+    }
+    this.emitStateChange();
+  }
+
+  /**
    * Sets the EQ Preset by name or to AUTO mode.
    * @param presetName One of the preset keys or 'AUTO'
    * @param genres Optional genres array to initialize the AUTO mode bands immediately

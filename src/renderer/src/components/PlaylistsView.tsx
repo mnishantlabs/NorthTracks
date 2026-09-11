@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ChevronLeft, 
   Play, 
@@ -54,7 +54,7 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({
   onDeletePlaylist,
   onRemoveTrackFromPlaylist,
   onSavePlaylists,
-  setCurrentView,
+  setCurrentView: _setCurrentView,
   onTrackContextMenu,
   onNavigateToArtist,
   onOpenPlaylist,

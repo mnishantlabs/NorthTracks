@@ -12,9 +12,17 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
+    try {
+      const cached = localStorage.getItem('northtracks-theme');
+      if (cached && (cached === 'dark' || cached === 'light' || cached === 'system')) {
+        return cached as Theme;
+      }
+    } catch (e) {}
+
     if (window.electronAPI?.getThemeSync) {
       try {
-        return (window.electronAPI.getThemeSync() || 'dark') as Theme;
+        const electronTheme = window.electronAPI.getThemeSync();
+        if (electronTheme) return electronTheme as Theme;
       } catch (e) {
         console.error('Failed to load initial theme synchronously:', e);
       }
@@ -22,29 +30,44 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return 'dark';
   });
 
-  const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>('dark');
+  const getResolvedTheme = (t: Theme): 'dark' | 'light' => {
+    if (t === 'system') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return t;
+  };
+
+  const [_resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>(() => {
+    const init = getResolvedTheme(theme);
+    document.documentElement.setAttribute('data-theme', init);
+    return init;
+  });
 
   useEffect(() => {
+    const active = getResolvedTheme(theme);
+    setResolvedTheme(active);
+    document.documentElement.setAttribute('data-theme', active);
+
     if (theme === 'system') {
       const media = window.matchMedia('(prefers-color-scheme: dark)');
       const listener = () => {
-        setResolvedTheme(media.matches ? 'dark' : 'light');
+        const sysTheme = media.matches ? 'dark' : 'light';
+        setResolvedTheme(sysTheme);
+        document.documentElement.setAttribute('data-theme', sysTheme);
       };
-      listener();
       media.addEventListener('change', listener);
       return () => media.removeEventListener('change', listener);
-    } else {
-      setResolvedTheme(theme);
     }
     return undefined;
   }, [theme]);
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', resolvedTheme);
-  }, [resolvedTheme]);
-
   const setTheme = async (nextTheme: Theme) => {
     setThemeState(nextTheme);
+    const active = getResolvedTheme(nextTheme);
+    document.documentElement.setAttribute('data-theme', active);
+    try {
+      localStorage.setItem('northtracks-theme', nextTheme);
+    } catch (e) {}
     if (window.electronAPI?.saveSettings) {
       try {
         await window.electronAPI.saveSettings({ theme: nextTheme });

@@ -77,5 +77,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   restartApp: () => ipcRenderer.send('restart-app'),
   onUpdateStatus: (cb: (event: any, message: string) => void) => ipcRenderer.on('update-status', cb),
   renameFolder: (oldPath: string, newPath: string) => ipcRenderer.invoke('rename-folder', oldPath, newPath),
+  getSystemDrives: () => ipcRenderer.invoke('get-system-drives'),
+  cancelScan: () => ipcRenderer.invoke('cancel-scan'),
+  scanAllDrives: (targetRoots?: string[], allowedExtensions?: string[]) => ipcRenderer.invoke('scan-all-drives', targetRoots, allowedExtensions),
+  onScanAllDrivesProgress: (callback: (progress: { scannedFiles: number; foundCandidates: number; currentDir: string }) => void) => {
+    const listener = (_event: any, progress: any) => callback(progress);
+    ipcRenderer.on('scan-all-drives-progress', listener);
+    return () => {
+      ipcRenderer.removeListener('scan-all-drives-progress', listener);
+    };
+  },
+  autoOrganizeAllMusic: (tracks: any[]) => ipcRenderer.invoke('auto-organize-all-music', tracks),
+  onAutoOrganizeProgress: (callback: (progress: { current: number; total: number; trackName: string }) => void) => {
+    const listener = (_event: any, progress: any) => callback(progress);
+    ipcRenderer.on('auto-organize-progress', listener);
+    return () => {
+      ipcRenderer.removeListener('auto-organize-progress', listener);
+    };
+  },
+  searchOnlineMusic: (term: string) => ipcRenderer.invoke('search-online-music', term),
+  downloadOnlineTrack: (track: any) => ipcRenderer.invoke('download-online-track', track),
 });
 

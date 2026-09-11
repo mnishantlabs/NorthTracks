@@ -31,6 +31,8 @@ export interface Track {
   bitrate: number;
   isDuplicate?: boolean;
   coverArt?: string;
+  isOnline?: boolean;
+  previewUrl?: string;
 }
 
 interface AppSettings {
@@ -92,9 +94,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   onTrackContextMenu,
   hasScannedInSession,
   setHasScannedInSession,
-  onNavigateToArtist
+  onNavigateToArtist,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'local' | 'online'>('local');
   const [settings, setSettings] = useState<AppSettings>({
     sourceFolderPath: '',
     destinationFolderPath: '',
@@ -669,8 +672,12 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Search Filter
-  const filteredTracks = tracks.filter(t => {
+  // Search & Tab Filter
+  const targetTracks = activeTab === 'local'
+    ? tracks.filter(t => !t.isOnline)
+    : tracks.filter(t => t.isOnline || likedTracks.includes(t.filePath));
+
+  const filteredTracks = targetTracks.filter(t => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
     const titleMatch = t.title?.toLowerCase().includes(query);
@@ -738,7 +745,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         </div>
       )}
 
-      {/* Source Folder Setup Card */}
+      {/* Source Folder / Target Drive Setup Card */}
       {isCardCollapsed && settings.sourceFolderPath && tracks.length > 0 ? (
         <div style={{
           background: 'var(--bg-surface)',
@@ -800,7 +807,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 setTracks([]);
                 setHasScannedInSession(false);
               }}
-              placeholder="Select source folder..."
+              placeholder="Select source folder or drive path..."
               style={{
                 flex: 1,
                 background: 'var(--bg-main)',
@@ -860,20 +867,106 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       )}
 
       {!hasScannedInSession ? (
-        <div className="empty-state" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '300px' }}>
-          <FolderSearch size={48} style={{ color: 'var(--accent)', marginBottom: '16px' }} />
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>
-            No tracks scanned yet
-          </h3>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '360px', margin: 0, textAlign: 'center' }}>
-            Set your source folder above and click Scan Source to load your music files
-          </p>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '10px 0' }}>
+          <div style={{
+            background: 'var(--bg-surface)',
+            borderRadius: '16px',
+            border: '1px solid var(--border)',
+            padding: '32px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '24px'
+          }}>
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                background: 'var(--bg-card)',
+                color: 'var(--accent, #7c5cbf)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <FolderSearch size={24} />
+              </div>
+              <div>
+                <h4 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>
+                  Scan Specific Source Folder or Drive
+                </h4>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+                  Select or enter a target directory path above and click Scan Now to index your music files.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleScan(srcPathInput)}
+              className="button-primary"
+              disabled={loading}
+              style={{
+                padding: '10px 20px',
+                fontSize: '13px',
+                fontWeight: 600,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flexShrink: 0
+              }}
+            >
+              <RefreshCw size={14} className={loading ? 'logo-icon' : ''} />
+              <span>Scan Source Folder</span>
+            </button>
+          </div>
         </div>
       ) : (
         <>
           {/* Search and Stats Section */}
-          <div className="library-actions">
-            <div className="search-container">
+          <div className="library-actions" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '12px' }}>
+            {/* Tab Selector */}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setActiveTab('local')}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: '20px',
+                  border: '1px solid var(--border-medium)',
+                  background: activeTab === 'local' ? 'var(--primary, #7c5cbf)' : 'var(--bg-card)',
+                  color: activeTab === 'local' ? '#ffffff' : 'var(--text-secondary)',
+                  fontWeight: 600,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Local PC Music ({tracks.filter(t => !t.isOnline).length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('online')}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: '20px',
+                  border: '1px solid var(--border-medium)',
+                  background: activeTab === 'online' ? 'var(--primary, #7c5cbf)' : 'var(--bg-card)',
+                  color: activeTab === 'online' ? '#ffffff' : 'var(--text-secondary)',
+                  fontWeight: 600,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Synced Online Tracks ({tracks.filter(t => t.isOnline || likedTracks.includes(t.filePath)).length})
+              </button>
+            </div>
+
+            <div className="search-container" style={{ width: '100%' }}>
               <Search size={16} className="search-icon" />
               <input 
                 type="text" 

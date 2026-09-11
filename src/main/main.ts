@@ -1,12 +1,12 @@
-import { app, BrowserWindow, ipcMain, dialog, protocol, net, nativeImage, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, protocol, nativeImage, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import crypto from 'crypto';
-import { pathToFileURL } from 'url';
 import NodeID3 from 'node-id3';
-import { scanLibrary, findFolderImage, getAudioFiles, limitConcurrency } from './scanner';
+import { scanLibrary, findFolderImage, getAudioFiles, limitConcurrency, fastScanAllDrives, getSystemDrives, cancelCurrentScan, isScanCancelled } from './scanner';
+import { fetchiTunesMetadata } from './itunes';
 import { organizeLibrary, clearGenreMapCache, normalizeGenreName, reorganizeFolders } from './organizer';
 import { getSettings, saveSettings } from './settings';
 import { initializeDiscordRpc, shutdownDiscordRpc, updateDiscordActivity, testDiscordRpcConnection } from './discord';
@@ -494,6 +494,301 @@ ipcMain.handle('scan-library', async (_event, sourceFolder: string) => {
   }
 });
 
+ipcMain.handle('get-system-drives', async () => {
+  return getSystemDrives();
+});
+
+ipcMain.handle('cancel-scan', async () => {
+  cancelCurrentScan();
+  return true;
+});
+
+// Scan all PC drives / target drives IPC handler
+ipcMain.handle('scan-all-drives', async (event, targetRoots?: string[], allowedExtensions?: string[]) => {
+  try {
+    const tracks = await fastScanAllDrives(targetRoots, (progress) => {
+      event.sender.send('scan-all-drives-progress', progress);
+    }, allowedExtensions);
+    return tracks;
+  } catch (err: any) {
+    console.error('Failed to scan drives:', err);
+    throw err;
+  }
+});
+
+// Auto organize and tag all music IPC handler using iTunes Search API & default Music folder
+ipcMain.handle('auto-organize-all-music', async (event, tracks: any[]) => {
+  const musicDir = app.getPath('music');
+  let successCount = 0;
+  let enrichedCount = 0;
+  const processedTracks: any[] = [];
+
+  const total = tracks.length;
+  let current = 0;
+
+  for (const track of tracks) {
+    if (isScanCancelled()) break;
+    current++;
+    event.sender.send('auto-organize-progress', { current, total, trackName: track.title });
+
+    let finalTitle = track.title;
+    let finalArtist = track.artist;
+    let finalAlbum = track.album;
+    let finalGenre = track.genre && track.genre.length > 0 ? track.genre[0] : 'Unsorted';
+    let coverBuffer: Buffer | undefined = undefined;
+
+    try {
+      const itunesData = await fetchiTunesMetadata(track.title, track.artist, path.basename(track.filePath));
+      if (itunesData) {
+        if (itunesData.title) finalTitle = itunesData.title;
+        if (itunesData.artist) finalArtist = itunesData.artist;
+        if (itunesData.album) finalAlbum = itunesData.album;
+        if (itunesData.genre) finalGenre = itunesData.genre;
+        if (itunesData.coverBuffer) coverBuffer = itunesData.coverBuffer;
+        enrichedCount++;
+      }
+    } catch (e) {
+      console.error('iTunes enrichment error:', e);
+    }
+
+    const normalizedGenre = normalizeGenreName(finalGenre);
+    const sanitizedGenre = normalizedGenre.replace(/[\\/:*?"<>|]/g, '').trim() || 'Unsorted';
+    const targetGenreDir = path.join(musicDir, sanitizedGenre);
+
+    const safeTitle = finalTitle.replace(/[\\/:*?"<>|]/g, '').trim() || 'Track';
+    const safeArtist = finalArtist.replace(/[\\/:*?"<>|]/g, '').trim() || 'Unknown Artist';
+    const ext = path.extname(track.filePath).toLowerCase() || '.mp3';
+    const newFilename = `${safeArtist} - ${safeTitle}${ext}`;
+    const targetFilePath = path.join(targetGenreDir, newFilename);
+
+    try {
+      if (!fs.existsSync(targetGenreDir)) {
+        fs.mkdirSync(targetGenreDir, { recursive: true });
+      }
+
+      if (ext === '.mp3') {
+        try {
+          const tagsToUpdate: any = {
+            title: finalTitle,
+            artist: finalArtist,
+            album: finalAlbum,
+            genre: normalizedGenre
+          };
+          if (coverBuffer) {
+            tagsToUpdate.image = {
+              mime: 'image/jpeg',
+              type: { id: 3, name: 'front cover' },
+              description: 'Cover Art',
+              imageBuffer: coverBuffer
+            };
+          }
+          NodeID3.update(tagsToUpdate, track.filePath);
+        } catch (tagErr) {
+          console.error('Failed to update ID3 tags during auto organize:', tagErr);
+        }
+      }
+
+      if (path.resolve(track.filePath) !== path.resolve(targetFilePath)) {
+        try {
+          fs.copyFileSync(track.filePath, targetFilePath);
+        } catch (e) {
+          console.error('Copy file failed:', e);
+        }
+      }
+
+      successCount++;
+      processedTracks.push({
+        ...track,
+        filePath: targetFilePath,
+        title: finalTitle,
+        artist: finalArtist,
+        album: finalAlbum,
+        genre: [normalizedGenre],
+      });
+    } catch (err) {
+      console.error('Failed to organize single track:', track.filePath, err);
+    }
+  }
+
+  // Save to library.json
+  try {
+    const logDir = path.dirname(libraryFilePath);
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
+    }
+    const existingContent = fs.existsSync(libraryFilePath) ? fs.readFileSync(libraryFilePath, 'utf-8') : '[]';
+    let existingLib: any[] = [];
+    try { existingLib = JSON.parse(existingContent); } catch (e) { existingLib = []; }
+
+    const merged = Array.isArray(existingLib) ? [...existingLib, ...processedTracks] : processedTracks;
+    const uniqueMap = new Map();
+    merged.forEach(t => uniqueMap.set(t.filePath, t));
+    const finalLib = Array.from(uniqueMap.values());
+    fs.writeFileSync(libraryFilePath, JSON.stringify(finalLib, null, 2), 'utf-8');
+  } catch (e) {
+    console.error('Failed to update library.json after auto organize:', e);
+  }
+
+  return {
+    successCount,
+    enrichedCount,
+    totalCount: total,
+    tracks: processedTracks
+  };
+});
+
+// Search online music catalog IPC handler (iTunes / Apple Music Search API)
+ipcMain.handle('search-online-music', async (_event, term: string) => {
+  try {
+    const { searchiTunesCatalog } = await import('./itunes');
+    return await searchiTunesCatalog(term, 30);
+  } catch (err: any) {
+    console.error('Failed to search online music:', err);
+    return [];
+  }
+});
+
+// Download online track to local Music folder & auto-index IPC handler
+ipcMain.handle('download-online-track', async (_event, onlineTrack: any) => {
+  try {
+    const musicDir = app.getPath('music');
+    const title = onlineTrack.title || 'Unknown Title';
+    const artist = onlineTrack.artist || 'Unknown Artist';
+    const album = onlineTrack.album || 'Unknown Album';
+    const rawGenre = (onlineTrack.genre && onlineTrack.genre.length > 0) ? onlineTrack.genre[0] : 'Pop';
+    const normalizedGenre = normalizeGenreName(rawGenre);
+    const sanitizedGenre = normalizedGenre.replace(/[\\/:*?"<>|]/g, '').trim() || 'Pop';
+    const targetGenreDir = path.join(musicDir, sanitizedGenre);
+
+    if (!fs.existsSync(targetGenreDir)) {
+      fs.mkdirSync(targetGenreDir, { recursive: true });
+    }
+
+    const safeTitle = title.replace(/[\\/:*?"<>|]/g, '').trim() || 'Track';
+    const safeArtist = artist.replace(/[\\/:*?"<>|]/g, '').trim() || 'Artist';
+    const filename = `${safeArtist} - ${safeTitle}.mp3`;
+    const targetFilePath = path.join(targetGenreDir, filename);
+
+    // Download audio file stream / buffer from previewUrl / stream URL
+    const previewUrl = onlineTrack.previewUrl || onlineTrack.filePath;
+    if (!previewUrl || !previewUrl.startsWith('http')) {
+      throw new Error('Invalid download URL');
+    }
+
+    const downloadBuffer = await new Promise<Buffer>((resolve, reject) => {
+      const client = previewUrl.startsWith('https') ? require('https') : require('http');
+      const req = client.get(previewUrl, (res: any) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          client.get(res.headers.location, (res2: any) => {
+            const chunks: Buffer[] = [];
+            res2.on('data', (chunk: any) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+            res2.on('end', () => resolve(Buffer.concat(chunks)));
+          }).on('error', reject);
+          return;
+        }
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: any) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+        res.on('end', () => resolve(Buffer.concat(chunks)));
+      });
+      req.on('error', reject);
+    });
+
+    await fs.promises.writeFile(targetFilePath, downloadBuffer);
+
+    // Download HD cover art buffer if available
+    let coverBuffer: Buffer | undefined = undefined;
+    let coverArtLocalPath: string | undefined = undefined;
+    if (onlineTrack.coverArt && onlineTrack.coverArt.startsWith('http')) {
+      try {
+        coverBuffer = await new Promise<Buffer>((resolve, reject) => {
+          const client = onlineTrack.coverArt.startsWith('https') ? require('https') : require('http');
+          client.get(onlineTrack.coverArt, (res: any) => {
+            const chunks: Buffer[] = [];
+            res.on('data', (chunk: any) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+            res.on('end', () => resolve(Buffer.concat(chunks)));
+          }).on('error', reject);
+        });
+
+        const appData = app.getPath('userData');
+        const cacheDir = path.join(appData, 'ArtPreviews');
+        if (!fs.existsSync(cacheDir)) {
+          fs.mkdirSync(cacheDir, { recursive: true });
+        }
+        const hash = crypto.createHash('md5').update(targetFilePath).digest('hex');
+        const cacheImagePath = path.join(cacheDir, `${hash}.jpg`);
+        await fs.promises.writeFile(cacheImagePath, coverBuffer);
+        coverArtLocalPath = `media:///${cacheImagePath.replace(/\\/g, '/')}`;
+      } catch (err) {
+        console.error('Failed to download cover art buffer:', err);
+      }
+    }
+
+    // Embed ID3 Tags
+    try {
+      const tagsToUpdate: any = {
+        title,
+        artist,
+        album,
+        genre: normalizedGenre
+      };
+      if (coverBuffer) {
+        tagsToUpdate.image = {
+          mime: 'image/jpeg',
+          type: { id: 3, name: 'front cover' },
+          description: 'Cover Art',
+          imageBuffer: coverBuffer
+        };
+      }
+      NodeID3.update(tagsToUpdate, targetFilePath);
+    } catch (tagErr) {
+      console.error('Failed to update ID3 tags on downloaded track:', tagErr);
+    }
+
+    const localTrack = {
+      filePath: targetFilePath,
+      title,
+      artist,
+      album,
+      genre: [normalizedGenre],
+      duration: onlineTrack.duration || 30,
+      bitrate: 256000,
+      coverArt: coverArtLocalPath || onlineTrack.coverArt
+    };
+
+    // Auto index into library.json
+    try {
+      const logDir = path.dirname(libraryFilePath);
+      if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+      }
+      const existingContent = fs.existsSync(libraryFilePath) ? fs.readFileSync(libraryFilePath, 'utf-8') : '[]';
+      let existingLib: any[] = [];
+      try { existingLib = JSON.parse(existingContent); } catch (e) { existingLib = []; }
+
+      const updatedLib = [localTrack, ...existingLib.filter(t => t.filePath !== targetFilePath)];
+      fs.writeFileSync(libraryFilePath, JSON.stringify(updatedLib, null, 2), 'utf-8');
+
+      // Also sync settings cachedLibrary
+      const settings = await getSettings();
+      await saveSettings({ cachedLibrary: updatedLib, likedTracks: [...(settings.likedTracks || []), targetFilePath] });
+    } catch (e) {
+      console.error('Failed to auto-index downloaded track into library.json:', e);
+    }
+
+    return {
+      success: true,
+      localFilePath: targetFilePath,
+      track: localTrack
+    };
+  } catch (err: any) {
+    console.error('Failed to download online track:', err);
+    return {
+      success: false,
+      error: err.message || 'Download failed'
+    };
+  }
+});
+
 // Get library IPC handler
 ipcMain.handle('get-library', async () => {
   try {
@@ -724,6 +1019,9 @@ ipcMain.handle('save-liked-tracks', async (_event, likedTracks: string[]) => {
 // Play track IPC handler
 ipcMain.handle('play-track', async (_event, filePath: string) => {
   try {
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      return filePath;
+    }
     const formattedPath = filePath.replace(/\\/g, '/');
     return `media:///${formattedPath}`;
   } catch (err: any) {
@@ -1008,7 +1306,7 @@ ipcMain.handle('select-folder', async () => {
 ipcMain.handle('get-genre-folders', async (_event, forceRefresh?: boolean) => {
   try {
     const settings = await getSettings();
-    const destinationFolderPath = settings.destinationFolderPath || 'C:\\Users\\North\\Music';
+    const destinationFolderPath = settings.destinationFolderPath || app.getPath('music');
 
     if (!fs.existsSync(destinationFolderPath)) {
       return [];

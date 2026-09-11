@@ -18,6 +18,7 @@ interface GenreViewProps {
   onNavigateToArtist: (artistName: string) => void;
   /** Called with the updated base64 cover whenever user changes the cover image */
   onCoverChange?: (genre: string, base64: string) => void;
+  onRenameGenre?: (oldName: string, newName: string) => Promise<void> | void;
 }
 
 export const GenreView: React.FC<GenreViewProps> = ({

@@ -67,6 +67,9 @@ interface PlayerBarProps {
   playlists: any[];
   onAddToPlaylist: (playlistId: string, track: Track) => void;
   onCreatePlaylistWithTrack: (track: Track) => void;
+  onDownloadTrack?: (track: Track) => Promise<void>;
+  downloadingPaths?: string[];
+  downloadedPaths?: string[];
 }
 
 export const PlayerBar: React.FC<PlayerBarProps> = ({

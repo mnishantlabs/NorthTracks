@@ -10,19 +10,30 @@ import {
   Music2, 
   Plug, 
   Palette,
-  Lock
+  Lock,
+  Zap,
+  Youtube
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface SettingsViewProps {
   settingsCategory: string | null;
+  onOpenAutoScan?: () => void;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ settingsCategory }) => {
+export const SettingsView: React.FC<SettingsViewProps> = ({ settingsCategory, onOpenAutoScan }) => {
   const { theme, setTheme } = useTheme();
 
   const [destinationFolderPath, setDestinationFolderPath] = useState('');
   const [autoDetectDuplicates, setAutoDetectDuplicates] = useState(true);
+  const [mergeLikeAndDownload, setMergeLikeAndDownload] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('northtracks-merge-like-download');
+      return saved ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
   const [watchSourceFolder, setWatchSourceFolder] = useState(false);
   const [autoplayNextTrack, setAutoplayNextTrack] = useState(true);
   const [rememberPlaybackPosition, setRememberPlaybackPosition] = useState(false);
@@ -217,7 +228,42 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ settingsCategory }) 
         
         {/* CATEGORY: DIRECTORIES */}
         {settingsCategory === 'directories' && (
-          <div className="settings-content-section fade-in">
+          <div className="settings-content-section fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Rapid Full-PC Drive Scanner Card */}
+            <div className="card settings-card" style={{ border: '1px solid var(--primary-alpha, rgba(124, 92, 191, 0.3))' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '12px' }}>
+                <div style={{ padding: '10px', borderRadius: '10px', background: 'rgba(124, 92, 191, 0.15)', color: 'var(--primary, #7c5cbf)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Zap size={22} />
+                </div>
+                <div>
+                  <h3 className="settings-section-title" style={{ margin: 0, fontSize: '16px' }}>Rapid Full-PC Music Scanner</h3>
+                  <p className="settings-section-desc" style={{ margin: '4px 0 0 0', fontSize: '13px' }}>
+                    Auto-scans all Windows drives (<code style={{ background: 'var(--bg-main)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border)' }}>C:\</code>, <code style={{ background: 'var(--bg-main)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border)' }}>D:\</code>), filters non-music audio, auto-tags via iTunes API, and organizes files.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    Target Music Folder: <strong style={{ color: 'var(--text-primary)' }}>{destinationFolderPath || 'C:\\Users\\...\\Music'}</strong>
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    Smart filtering ignores SFX &amp; voice memos (&lt; 30s) automatically.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={onOpenAutoScan}
+                  className="button-primary"
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 18px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  <Zap size={15} />
+                  <span>Start Rapid PC Scan</span>
+                </button>
+              </div>
+            </div>
+
             <div className="card settings-card">
               <h3 className="settings-section-title">Directory Folders</h3>
               <p className="settings-section-desc">Configure target directories where NorthTracks scans and organizes local audio libraries.</p>
@@ -264,6 +310,49 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ settingsCategory }) 
                     type="checkbox" 
                     checked={autoDetectDuplicates}
                     onChange={(e) => setAutoDetectDuplicates(e.target.checked)}
+                  />
+                  <span className="switch-slider"></span>
+                </label>
+              </div>
+
+              {/* Toggle 1.5: Filter Call & Voice Recordings */}
+              <div className="toggle-row" style={{ marginTop: '16px' }}>
+                <div className="toggle-info">
+                  <div className="toggle-label-box">
+                    <Music2 size={14} className="toggle-icon-accent" />
+                    <h4>Filter call & voice recordings</h4>
+                  </div>
+                  <p>Automatically detects and hides phone call recordings (+91 numbers, spam alerts) from music library.</p>
+                </div>
+                <label className="switch-toggle">
+                  <input 
+                    type="checkbox" 
+                    checked={true}
+                    onChange={() => {}}
+                  />
+                  <span className="switch-slider"></span>
+                </label>
+              </div>
+
+              {/* Toggle 1.8: Merge Like & Download in Explore */}
+              <div className="toggle-row" style={{ marginTop: '16px' }}>
+                <div className="toggle-info">
+                  <div className="toggle-label-box">
+                    <Zap size={14} className="toggle-icon-accent" />
+                    <h4>Merge Like &amp; Auto-Download in Explore tab</h4>
+                  </div>
+                  <p>Liking an online song automatically downloads the full 320kbps MP3 into your Music folder.</p>
+                </div>
+                <label className="switch-toggle">
+                  <input 
+                    type="checkbox" 
+                    checked={mergeLikeAndDownload}
+                    onChange={(e) => {
+                      setMergeLikeAndDownload(e.target.checked);
+                      try {
+                        localStorage.setItem('northtracks-merge-like-download', JSON.stringify(e.target.checked));
+                      } catch (err) {}
+                    }}
                   />
                   <span className="switch-slider"></span>
                 </label>
@@ -398,6 +487,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ settingsCategory }) 
               </div>
             </div>
             
+            <div className="card settings-card" style={{ marginTop: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(255, 0, 0, 0.1)', color: '#FF0000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Youtube size={20} />
+                </div>
+                <div>
+                  <h3 className="settings-section-title" style={{ margin: 0, fontSize: '15px' }}>YouTube &amp; Google Account</h3>
+                  <p className="settings-section-desc" style={{ margin: '2px 0 0 0', fontSize: '12px' }}>
+                    Connect your account to sync listened songs, playlists, and online recommendations directly in Explore.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: '10px', background: 'var(--bg-surface, rgba(255, 255, 255, 0.03))', border: '1px solid var(--border, rgba(255, 255, 255, 0.06))' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#22c55e' }} />
+                  <div>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', display: 'block' }}>Connected as YouTube Music User</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Status: Active &amp; Syncing History</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="outlined-btn-normal"
+                  style={{ fontSize: '12px', padding: '6px 14px' }}
+                >
+                  Manage Account
+                </button>
+              </div>
+            </div>
+
             <div className="card settings-card" style={{ marginTop: '20px' }}>
               <div className="integrations-roadmap">
                 <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>Integrations Roadmap</h4>
