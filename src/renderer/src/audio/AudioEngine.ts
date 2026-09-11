@@ -61,6 +61,7 @@ export class AudioEngine {
 
   private compressor: DynamicsCompressorNode | null = null;
   private detectedHardwareName: string = 'Detecting Audio Output...';
+  private agcInterval: any = null;
 
   // Local state tracking
   private initialized = false;
@@ -235,6 +236,9 @@ export class AudioEngine {
     this.applyReverb();
     this.applyStereoWidth();
 
+    // Start adaptive AGC (Automatic Gain Control) loudness smoothing loop
+    this.startAdaptiveLoudnessControl();
+
     // Listen to changes in AudioContext state
     this.ctx.onstatechange = () => {
       this.emitStateChange();
@@ -376,6 +380,40 @@ export class AudioEngine {
 
     const targetGain = 0.7 / measuredRMS;
     return Math.max(0.5, Math.min(1.5, targetGain));
+  }
+
+  /**
+   * Real-time Adaptive Automatic Gain Control (AGC) & Loudness Normalization loop.
+   * Smoothly adjusts gain and dynamic range compression so transition between quiet and loud songs is seamless.
+   */
+  startAdaptiveLoudnessControl(): void {
+    if (this.agcInterval) clearInterval(this.agcInterval);
+    this.agcInterval = setInterval(() => {
+      if (!this.analyser || !this.gainNode || !this.ctx || this.ctx.state !== 'running') return;
+      
+      const bufferLength = this.analyser.fftSize;
+      const dataArray = new Float32Array(bufferLength);
+      this.analyser.getFloatTimeDomainData(dataArray);
+
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i] * dataArray[i];
+      }
+      const rms = Math.sqrt(sum / dataArray.length);
+
+      // Skip silent pauses or quiet intro/outro
+      if (rms < 0.01) return;
+
+      // Target RMS is ~0.15 for comfortable listening volume (-14 LUFS)
+      const targetRms = 0.15;
+      const rmsDiff = targetRms / rms;
+      const desiredGain = Math.max(0.5, Math.min(1.4, this.normalizationGain * rmsDiff));
+
+      // Smoothly interpolate current gain towards desired gain over 300ms
+      const currentGain = this.gainNode.gain.value;
+      const smoothGain = currentGain + (desiredGain - currentGain) * 0.1;
+      this.gainNode.gain.setValueAtTime(smoothGain, this.ctx.currentTime);
+    }, 250);
   }
 
   /**

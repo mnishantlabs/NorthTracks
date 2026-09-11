@@ -57,7 +57,7 @@ const CATEGORY_CARDS = [
   { 
     id: 'top hits', 
     label: 'Top Global Hits', 
-    subLabel: '500+ Trending Tracks',
+    subLabel: 'Global Top 50',
     Icon: Flame,
     gradient: 'linear-gradient(135deg, #ef4444 0%, #7c5cbf 100%)',
     bgCover: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80'
@@ -65,7 +65,7 @@ const CATEGORY_CARDS = [
   { 
     id: 'pop', 
     label: 'Pop Hits', 
-    subLabel: '350+ Chart Toppers',
+    subLabel: 'Chart Toppers',
     Icon: Music,
     gradient: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
     bgCover: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&auto=format&fit=crop&q=80'
@@ -73,7 +73,7 @@ const CATEGORY_CARDS = [
   { 
     id: 'hip-hop', 
     label: 'Hip-Hop & Rap', 
-    subLabel: '400+ Beat Bangers',
+    subLabel: 'Beat Bangers',
     Icon: TrendingUp,
     gradient: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
     bgCover: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=80'
@@ -81,7 +81,7 @@ const CATEGORY_CARDS = [
   { 
     id: 'rock', 
     label: 'Rock Classics', 
-    subLabel: '280+ Guitar Anthems',
+    subLabel: 'Guitar Anthems',
     Icon: Radio,
     gradient: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
     bgCover: 'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=300&auto=format&fit=crop&q=80'
@@ -89,7 +89,7 @@ const CATEGORY_CARDS = [
   { 
     id: 'lofi chill', 
     label: 'Lofi & Chill', 
-    subLabel: '200+ Study Beats',
+    subLabel: 'Study Beats',
     Icon: Sparkles,
     gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
     bgCover: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=300&auto=format&fit=crop&q=80'
@@ -97,7 +97,7 @@ const CATEGORY_CARDS = [
   { 
     id: 'electronic edm', 
     label: 'Electronic EDM', 
-    subLabel: '300+ Club Drops',
+    subLabel: 'Club Drops',
     Icon: Zap,
     gradient: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
     bgCover: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=300&auto=format&fit=crop&q=80'
@@ -105,7 +105,7 @@ const CATEGORY_CARDS = [
   { 
     id: 'indie acoustic', 
     label: 'Indie Folk', 
-    subLabel: '180+ Acoustic Vibe',
+    subLabel: 'Acoustic Vibe',
     Icon: Music2,
     gradient: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
     bgCover: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=300&auto=format&fit=crop&q=80'
@@ -113,7 +113,7 @@ const CATEGORY_CARDS = [
   { 
     id: 'rnb soul', 
     label: 'R&B / Soul', 
-    subLabel: '220+ Smooth Grooves',
+    subLabel: 'Smooth Grooves',
     Icon: Headphones,
     gradient: 'linear-gradient(135deg, #f43f5e 0%, #be123c 100%)',
     bgCover: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=300&auto=format&fit=crop&q=80'
@@ -163,9 +163,12 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [syncedYtTracks] = useState<Track[]>([]);
+  const [personalizedRecs, setPersonalizedRecs] = useState<Track[]>([]);
+  const [personalizedLabel, setPersonalizedLabel] = useState<string>('Picked for You Today');
 
   const profileRef = useRef<HTMLDivElement>(null);
   const categoriesScrollRef = useRef<HTMLDivElement>(null);
+  const recsScrollRef = useRef<HTMLDivElement>(null);
 
   // Mouse wheel horizontal scroll handler for category cards
   useEffect(() => {
@@ -298,11 +301,18 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
     fetchCatalog(activeCategory);
   }, [activeCategory]);
 
-  // Derive personalized recommendations based on local PC music files
+  // Derive personalized recommendations based on local PC music files & listened artists
   useEffect(() => {
-    if (tracks && tracks.length > 0 && activeCategory === 'top hits') {
+    async function loadPersonalizedRecs() {
+      if (!tracks || tracks.length === 0) return;
+
+      const artistCounts: Record<string, number> = {};
       const genreCounts: Record<string, number> = {};
+
       tracks.forEach((t: Track) => {
+        if (t.artist && t.artist !== 'Unknown Artist') {
+          artistCounts[t.artist] = (artistCounts[t.artist] || 0) + 1;
+        }
         if (t.genre && t.genre[0]) {
           const g = t.genre[0].trim();
           if (g && g.toLowerCase() !== 'unsorted' && g.toLowerCase() !== 'unknown') {
@@ -310,11 +320,37 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
           }
         }
       });
+
+      const topArtist = Object.entries(artistCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
       const topGenre = Object.entries(genreCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+
+      if (topArtist) {
+        setPersonalizedLabel(`Recommended Hits (Because You Listen to ${topArtist})`);
+        try {
+          if (window.electronAPI?.searchOnlineMusic) {
+            const res = await window.electronAPI.searchOnlineMusic(topArtist);
+            if (res && res.length > 0) {
+              setPersonalizedRecs(res.slice(0, 10));
+              return;
+            }
+          }
+        } catch (e) {}
+      }
+
       if (topGenre) {
-        fetchCatalog(topGenre);
+        setPersonalizedLabel(`Recommended for You in ${topGenre}`);
+        try {
+          if (window.electronAPI?.searchOnlineMusic) {
+            const res = await window.electronAPI.searchOnlineMusic(topGenre);
+            if (res && res.length > 0) {
+              setPersonalizedRecs(res.slice(0, 10));
+            }
+          }
+        } catch (e) {}
       }
     }
+
+    loadPersonalizedRecs();
   }, [tracks]);
 
   const handleCategoryClick = (catId: string) => {
@@ -498,6 +534,100 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* Personalized Recommendations Based on Listened Music (Matching Home Screen 1:1 Layout) */}
+      {personalizedRecs.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Sparkles size={18} style={{ color: 'var(--primary, #7c5cbf)' }} />
+              <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                {personalizedLabel}
+              </h3>
+            </div>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Based on your listening history</span>
+          </div>
+
+          <div
+            ref={recsScrollRef}
+            style={{
+              display: 'flex',
+              overflowX: 'auto',
+              gap: '12px',
+              paddingBottom: '8px',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none'
+            }}
+            className="no-scrollbar"
+          >
+            {personalizedRecs.map((track, idx) => (
+              <div
+                key={`rec-${track.filePath || idx}`}
+                onClick={() => onPlayTrack(track, personalizedRecs)}
+                style={{
+                  minWidth: '150px',
+                  maxWidth: '150px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}
+              >
+                <div
+                  style={{
+                    width: '150px',
+                    height: '150px',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    backgroundColor: 'var(--bg-card, rgba(255,255,255,0.04))',
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {track.coverArt ? (
+                    <img src={track.coverArt} alt={track.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <Music2 size={32} style={{ color: 'var(--text-muted)' }} />
+                  )}
+                  <div className="play-overlay" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }}>
+                    <Play size={20} color="#ffffff" fill="#ffffff" />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <div
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: 'var(--text-primary)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                    title={track.title}
+                  >
+                    {track.title}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      color: 'var(--text-secondary)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                    title={track.artist}
+                  >
+                    <ArtistLinks artist={track.artist} onNavigate={onNavigateToArtist || (() => {})} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Visual Music Categories Section (Matching Trending Cards Design) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

@@ -20,9 +20,15 @@ This document summarizes all key architectural improvements, feature additions, 
   - Speech Recognition integration for hands-free voice commands ("Hey Cortana, play next track", "Volume up", "Bass boost", "Spotify mode").
 - **Full-Length Online Track Playback in Explore Tab**:
   - Continuous stream resolution & seamless extension in `App.tsx` ensuring Explore tab online tracks play 100% full song length (3:30+ mins) without stopping after 30 seconds.
-- **Dynamic EQ Track-Change Tuning**:
-  - Connected `audioEngine.onTrackChanged(track.genre)` in `App.tsx` on every track playback.
-  - Automatically updates EQ band gains on song changes (e.g. Pop, Rock, Classical, Electronic, Hip-Hop, Acoustic, Vocal).
+- **Adaptive AGC Loudness & Pitch Auto-Adjustment**:
+  - Implemented `startAdaptiveLoudnessControl()` in `AudioEngine.ts` running a real-time Automatic Gain Control (AGC) loop every 250ms.
+  - Smoothly equalizes RMS volume level (-14 LUFS target) when switching from quiet tracks (acoustic/lofi) to loud tracks (EDM/rock), preventing sudden volume spikes.
+- **Personalized Recommendations in Explore Tab**:
+  - Added `"Picked for You Based on Your Listening"` section in `ExploreView.tsx`.
+  - Automatically queries online music catalog matching the user's most played artist/genre (e.g. `"Recommended Hits (Because You Listen to Charli XCX)"`).
+- **Explore Tab Card Layout Matching Home View**:
+  - Re-styled Explore tab category & recommendation cards to match the Home screen (1:1 ratio 150px square cover art, `borderRadius: 8px`, `fontWeight: 600` title, subtext underneath).
+  - Removed icon clutter and fake text strings (`500+ Trending Tracks`).
 
 ---
 
